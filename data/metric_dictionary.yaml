@@ -1,0 +1,5 @@
+metrics:
+- name: Total Sales
+  description: Sum of all sales revenue
+  sql_formula: SUM(Sales)
+  grain_hint: row

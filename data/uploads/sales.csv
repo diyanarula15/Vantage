@@ -1,0 +1,6 @@
+Date,Region,Category,Sales,CustomerEmail
+2026-01-01,North America,Electronics,1500,alice@example.com
+2026-01-02,Europe,Software,800,bob@company.org
+2026-01-03,North America,Electronics,1200,charlie@test.net
+2026-02-01,Europe,Electronics,900,diana@demo.co
+2026-02-02,North America,Software,2000,evan@example.com

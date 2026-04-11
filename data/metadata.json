@@ -1,0 +1,85 @@
+{
+  "source_file": "sales.csv",
+  "table_name": "sales",
+  "row_count": 5,
+  "column_count": 5,
+  "schema": {
+    "database": "./data/vantage.db",
+    "table": "sales",
+    "columns": [
+      {
+        "name": "Date",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Region",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Category",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Sales",
+        "sqlite_type": "INTEGER",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "CustomerEmail",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      }
+    ]
+  },
+  "context_graph": {
+    "dataset_name": "Sales Data",
+    "entities": [
+      {
+        "table": "sales",
+        "primary_key_guess": null,
+        "time_column_guess": "Date",
+        "description": "Sales records containing region, category, revenue, and customer contact.",
+        "columns": [
+          {
+            "name": "Date",
+            "semantic_type": "time",
+            "business_meaning": "Transaction Date",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Region",
+            "semantic_type": "dimension",
+            "business_meaning": "Geographic Sales Region",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Category",
+            "semantic_type": "dimension",
+            "business_meaning": "Product Category",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Sales",
+            "semantic_type": "metric",
+            "business_meaning": "Revenue in USD",
+            "pii_risk": "none"
+          },
+          {
+            "name": "CustomerEmail",
+            "semantic_type": "identifier",
+            "business_meaning": "Contact email of buyer",
+            "pii_risk": "high"
+          }
+        ]
+      }
+    ]
+  }
+}
