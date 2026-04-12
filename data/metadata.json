@@ -88,12 +88,12 @@
         "table": "aaravsharma_6y_transactions_2019_11_to_2025_10",
         "primary_key_guess": null,
         "time_column_guess": "Txn Date",
-        "description": "A transactional dataset capturing account activities over a 6-year period, including debits, credits, and balances.",
+        "description": "A table containing 6 years of transaction data for a single account, including details like transaction date, description, merchant, category, and amounts.",
         "columns": [
           {
             "name": "Account",
             "semantic_type": "identifier",
-            "business_meaning": "Unique identifier for the account holder.",
+            "business_meaning": "Unique identifier for the account associated with the transactions.",
             "pii_risk": "medium"
           },
           {
@@ -105,7 +105,7 @@
           {
             "name": "Value Date",
             "semantic_type": "time",
-            "business_meaning": "Date when the transaction value was realized.",
+            "business_meaning": "Date when the transaction value was posted to the account.",
             "pii_risk": "none"
           },
           {
@@ -118,24 +118,24 @@
             "name": "Ref/Cheque No.",
             "semantic_type": "identifier",
             "business_meaning": "Reference or cheque number associated with the transaction.",
-            "pii_risk": "none"
+            "pii_risk": "low"
           },
           {
             "name": "Merchant",
             "semantic_type": "text",
-            "business_meaning": "Name of the merchant involved in the transaction.",
-            "pii_risk": "none"
+            "business_meaning": "Name of the merchant or entity involved in the transaction.",
+            "pii_risk": "low"
           },
           {
             "name": "MCC",
             "semantic_type": "category",
-            "business_meaning": "Merchant Category Code, indicating the type of business.",
+            "business_meaning": "Merchant Category Code, a 4-digit number representing the merchant's business category.",
             "pii_risk": "none"
           },
           {
             "name": "Category",
             "semantic_type": "category",
-            "business_meaning": "Categorization of the transaction (e.g., Income, Housing, Utilities).",
+            "business_meaning": "Broad category of the transaction (e.g., Income, Housing, Utilities).",
             "pii_risk": "none"
           },
           {
@@ -147,13 +147,13 @@
           {
             "name": "Debit",
             "semantic_type": "metric",
-            "business_meaning": "Amount debited from the account.",
+            "business_meaning": "Amount debited from the account in the transaction.",
             "pii_risk": "none"
           },
           {
             "name": "Credit",
             "semantic_type": "metric",
-            "business_meaning": "Amount credited to the account.",
+            "business_meaning": "Amount credited to the account in the transaction.",
             "pii_risk": "none"
           },
           {
@@ -168,13 +168,13 @@
     "relationships": []
   },
   "date_bounds": {
-    "min_date": "2019-11-01",
-    "max_date": "2025-10-28"
+    "min_date": null,
+    "max_date": null
   },
   "instant_insights": {
     "confidence": 85,
-    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the debit transactions.",
-    "key_trend": "Recurring grocery and fuel expenses are evident, with multiple transactions at BigBasket and fuel pumps throughout the month.",
+    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the dataset.",
+    "key_trend": "Recurring grocery and fuel expenses are evident, with multiple transactions at BigBasket and fuel stations throughout the month.",
     "top_insight": "The dataset reflects a balanced mix of income and essential expenses, with a focus on housing, utilities, groceries, and transport, indicating a typical monthly financial pattern."
   }
 }

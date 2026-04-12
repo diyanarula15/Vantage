@@ -86,27 +86,13 @@ st.markdown(
 h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', 'Sora', sans-serif; font-weight: 700; color: #122033; }
 p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
 
-/* FULL SCREEN FIXED LAYOUT / INDEPENDENT SCROLL */
-[data-testid="stAppViewContainer"] {
-  height: 100vh !important;
-  overflow: hidden !important;
+/* --- REMOVE HIDE OVERFLOW FOR SCROLLING BUG FIX --- */
+.block-container {
+  padding-top: 2rem !important;
+  padding-bottom: 2rem !important;
 }
 
-div.block-container, [data-testid="stMainBlockContainer"] {
-  height: 100vh !important;
-  max-height: 100vh !important;
-  overflow: hidden !important;
-  padding-top: 1.5rem !important;
-  padding-bottom: 0 !important;
-}
-
-/* Constrain the row wrapper tightly to the screen so columns MUST overflow */
-/* Constrain ONLY the top-level row wrapper tightly to the screen so columns MUST overflow */
-div[data-testid="stHorizontalBlock"] {
-  height: calc(100vh - 4rem) !important;
-  max-height: calc(100vh - 4rem) !important;
-  align-items: stretch !important;
-}
+/* Force sidebars and content to naturally flex */
 
 /* Make EVERY column internally scrollable bounding to the parent row */
 div[data-testid="column"], div[data-testid="stColumn"], div[data-testid="stHorizontalBlock"] > div {
@@ -425,9 +411,34 @@ with left_col:
     )
 
     st.markdown("<br><p style='font-size: 13px; color: #4A5A70;'><b>Suggested Prompts</b></p>", unsafe_allow_html=True)
-    st.caption('👉 "Why did spending spike in 2020?"')
-    st.caption('👉 "What categories drive the largest share of debits?"')
-    st.caption('👉 "Compare last year vs this year by category"')
+    
+    meta = st.session_state.dataset_meta
+    t_cols = meta.get("columns", [])
+    num_cols = [c["name"] for c in t_cols if c.get("sqlite_type") in ("REAL", "INTEGER", "FLOAT")]
+    cat_cols = [c["name"] for c in t_cols if c.get("sqlite_type") == "TEXT"]
+    
+    q1, q2, q3 = "What is the total?", "Show me the top 5.", "What are the common trends?"
+    
+    if num_cols and cat_cols:
+        q1 = f"What is the total {num_cols[0]} by {cat_cols[0]}?"
+    if len(cat_cols) > 1 and num_cols:
+        q2 = f"Show me the top 5 {cat_cols[1]} based on {num_cols[0]}."
+    elif num_cols:
+        q2 = f"What is the average of {num_cols[0]}?"
+    if cat_cols:
+        q3 = f"Provide a breakdown of rows by {cat_cols[0]}."
+
+    if st.button(f"👉 {q1}", key="sp1"):
+        st.session_state.pending_query = q1
+        st.rerun()
+        
+    if st.button(f"👉 {q2}", key="sp2"):
+        st.session_state.pending_query = q2
+        st.rerun()
+        
+    if st.button(f"👉 {q3}", key="sp3"):
+        st.session_state.pending_query = q3
+        st.rerun()
 
 # --- CENTER: INTELLIGENCE CANVAS ---
 with center_col:

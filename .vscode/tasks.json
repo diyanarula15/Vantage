@@ -1,0 +1,39 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Vantage Streamlit",
+			"type": "shell",
+			"command": "/Users/apple/Desktop/Vantage/.venv/bin/python",
+			"args": [
+				"-m",
+				"streamlit",
+				"run",
+				"Home.py"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "Run Vantage Streamlit Foreground",
+			"type": "shell",
+			"command": "/Users/apple/Desktop/Vantage/.venv/bin/python",
+			"args": [
+				"-m",
+				"streamlit",
+				"run",
+				"Home.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "Run test_ingest.py",
+			"type": "shell",
+			"command": "python test_ingest.py"
+		},
+		{
+			"label": "Run test_ingest 2",
+			"type": "shell",
+			"command": "/Users/apple/Desktop/Vantage/.venv/bin/python test_ingest.py"
+		}
+	]
+}
