@@ -144,11 +144,14 @@ Rules:
         self,
         table_name: str,
         context_graph: dict[str, Any],
+        metric_dictionary: dict[str, Any],
     ) -> None:
         collection = self.chroma_client.get_or_create_collection("column_semantics_v3")
 
         entities = context_graph.get("entities", [])
         column_payload: list[dict[str, Any]] = []
+        
+        # 1. Embed raw columns
         for entity in entities:
             for column in entity.get("columns", []):
                 record = {
@@ -160,6 +163,28 @@ Rules:
                 }
                 if record["column"]:
                     column_payload.append(record)
+                    
+        # 2. Embed GraphRAG relationships (ontology edges)
+        for rel in context_graph.get("relationships", []):
+            rel_doc = f"Relationship: {rel.get('left_table')}.{rel.get('left_column')} maps to {rel.get('right_table')}.{rel.get('right_column')} ({rel.get('relationship_type')})"
+            column_payload.append({
+                "table": rel.get("left_table", table_name),
+                "column": "GRAPH_EDGE",
+                "semantic_type": "graph_relationship",
+                "business_meaning": rel_doc,
+                "pii_risk": "none"
+            })
+            
+        # 3. Embed Metric mathematical logic
+        for metric in metric_dictionary.get("metrics", []):
+            met_doc = f"Metric Ontology '{metric.get('name')}': {metric.get('description')}. Formula constraint: {metric.get('sql_formula')}."
+            column_payload.append({
+                "table": table_name,
+                "column": f"METRIC_{metric.get('name')}",
+                "semantic_type": "metric_formula",
+                "business_meaning": met_doc,
+                "pii_risk": "none"
+            })
 
         if not column_payload:
             return
@@ -205,6 +230,26 @@ Rules:
         schema = self._schema_snapshot(table_name)
         context_graph, metric_dictionary = self._generate_metadata_and_metrics(table_name, df, schema)
 
+        min_date, max_date = None, None
+        for col in df.columns:
+            if str(df[col].dtype) in ['object', 'string'] or 'datetime' in str(df[col].dtype):
+                try:
+                    # Prevent numbers from becoming 1970 UNIX times randomly
+                    if not pd.to_numeric(df[col], errors='coerce').notna().sum() > len(df)*0.5:
+                        parsed = pd.to_datetime(df[col], errors='coerce')
+                        if not parsed.isna().all():
+                            col_min = parsed.min()
+                            col_max = parsed.max()
+                            if min_date is None or col_min < min_date: min_date = col_min
+                            if max_date is None or col_max > max_date: max_date = col_max
+                except Exception:
+                    pass
+                    
+        date_bounds = {
+            "min_date": min_date.strftime('%Y-%m-%d') if min_date else None,
+            "max_date": max_date.strftime('%Y-%m-%d') if max_date else None
+        }
+
         metadata = {
             "source_file": str(file_path),
             "table_name": table_name,
@@ -212,6 +257,7 @@ Rules:
             "column_count": int(df.shape[1]),
             "schema": schema,
             "context_graph": context_graph,
+            "date_bounds": date_bounds
         }
 
         with open(self.metadata_path, "w", encoding="utf-8") as metadata_file:
@@ -220,7 +266,7 @@ Rules:
         with open(self.metrics_path, "w", encoding="utf-8") as metrics_file:
             yaml.safe_dump(metric_dictionary, metrics_file, sort_keys=False)
 
-        self._index_semantics(table_name, context_graph)
+        self._index_semantics(table_name, context_graph, metric_dictionary)
 
         return {
             "table_name": table_name,

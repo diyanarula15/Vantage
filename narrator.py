@@ -62,6 +62,11 @@ Rows:
         prompt = f"""
 You are a business narrator for non-technical users.
 Write exactly 2 concise sentences and avoid jargon.
+
+RULES:
+1. If the "Result preview" is completely empty or [] or None, you MUST reply exactly with: "No records found matching those parameters in the dataset." Do not hallucinate variables.
+2. If data exists, highlight the biggest contributors, outliers, or notable concentrations (e.g. "X accounted for Y%").
+
 Question: {question}
 Result preview: {json.dumps(preview, indent=2)}
 """

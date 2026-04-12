@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import json
 import os
@@ -47,21 +48,21 @@ class VantageBrain:
             "documents": documents,
         }
 
-    def _check_cache(self, embedding: list[float]) -> Optional[str]:
+    def _check_cache(self, embedding: list[float]) -> tuple[Optional[str], float]:
         collection = self.chroma_client.get_or_create_collection("semantic_cache")
         try:
             result = collection.query(query_embeddings=[embedding], n_results=1)
             if not result.get("ids") or not result["ids"][0]:
-                return None
+                return None, 0.0
             
             distance = result["distances"][0][0]
             threshold = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.20"))
             if distance <= threshold:
                 metadatas = result["metadatas"][0][0]
-                return metadatas.get("sql")
+                return metadatas.get("sql"), distance
         except Exception:
-            return None
-        return None
+            return None, 0.0
+        return None, 0.0
 
     def _save_to_cache(self, query: str, sql: str, embedding: list[float]) -> None:
         collection = self.chroma_client.get_or_create_collection("semantic_cache")
@@ -74,19 +75,45 @@ class VantageBrain:
             metadatas=[{"sql": sql}]
         )
 
+    def _route_intent(self, query: str) -> str:
+        prompt = f"""
+You are an intent router for an analytics system.
+Classify the query into one of: FACTUAL, DIAGNOSTIC, COMPARISON, SUMMARY.
+DIAGNOSTIC = asking 'why', seeking root causes, variances, or drops.
+COMPARISON = comparing two periods, segments, or entities vs each other.
+SUMMARY = high level breakdown or overview.
+FACTUAL = list, sum, or generic questions.
+
+Query: {query}
+Return JSON only: {{"intent": "FACTUAL|DIAGNOSTIC|COMPARISON|SUMMARY"}}
+"""
+        try:
+            return self.llm.json(prompt).get("intent", "FACTUAL").strip().upper()
+        except:
+            return "FACTUAL"
+
     def _build_plan(
         self,
         query: str,
         schema: dict[str, Any],
         retrieval: dict[str, Any],
+        date_bounds: dict[str, Any],
+        intent: str
     ) -> list[str]:
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
         prompt = f"""
 You are the TAG Planner for text-to-SQL.
 Create a short execution plan for the user question.
 
 Question: {query}
+Intent Identified: {intent}
+Temporal Rules:
+- Current Reality Date: {current_date}
+- Dataset Boundaries: {json.dumps(date_bounds)} 
+Use these to map phrases like "last month" correctly.
+
 Schema: {json.dumps(schema, indent=2)}
-Retrieved semantic hints: {json.dumps(retrieval, indent=2)}
+GraphRAG Semantic Ontology: {json.dumps(retrieval, indent=2)}
 
 Return JSON with:
 {{"plan_steps": ["step 1", "step 2", "step 3"]}}
@@ -102,21 +129,30 @@ Return JSON with:
         schema: dict[str, Any],
         metric_dictionary: dict[str, Any],
         retrieval: dict[str, Any],
+        date_bounds: dict[str, Any],
+        intent: str
     ) -> str:
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        intent_rules = ""
+        if intent in ["DIAGNOSTIC", "COMPARISON"]:
+            intent_rules = "- intent is analytics! MUST USE GROUP BY to break down the metric by relevant dimensions (e.g., region, category) to show variance or comparison. Calculate deltas if possible."
+
         prompt = f"""
 You are a SQL synthesizer for SQLite.
 Generate a single SQLite query that answers the question.
 
 Question: {query}
 Plan steps: {json.dumps(plan_steps, indent=2)}
+Temporal Rules: Real date is {current_date}, bounds {json.dumps(date_bounds)}
 Schema: {json.dumps(schema, indent=2)}
 Metric dictionary: {json.dumps(metric_dictionary, indent=2)}
-Semantic retrieval: {json.dumps(retrieval, indent=2)}
 
 Constraints:
 - Use metric dictionary formulas consistently.
 - Only use columns from schema.
 - Prefer clear aliases.
+- CRITICAL SQLite RULE: NEVER use single quotes for column names! Use double quotes (e.g. "Column Name") for columns with spaces. Single quotes are ONLY for strings.
+{intent_rules}
 - Return JSON only as: {{"sql": "SELECT ..."}}
 """
         payload = self.llm.json(prompt)
@@ -164,9 +200,11 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
         metadata = self._load_metadata()
         metric_dictionary = self._load_metrics()
         schema = metadata.get("schema", {})
+        date_bounds = metadata.get("date_bounds", {})
 
+        intent = self._route_intent(query)
         embedding = self.llm.embed_texts([query])[0]
-        cached_sql = self._check_cache(embedding)
+        cached_sql, cache_distance = self._check_cache(embedding)
 
         retrieval = self._search_semantics(embedding)
         plan_steps = []
@@ -180,14 +218,14 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
             try:
                 columns, rows = self._run_sql(cached_sql)
                 sql = cached_sql
-                plan_steps = ["Used cached SQL"]
+                plan_steps = [f"[GBEC] Glass-Box Cache Hit! (L2 Distance: {cache_distance:.3f})", f"Intent Executed: {intent}"]
                 cached_run_success = True
             except Exception:
                 pass # Fall back to full synthesis
         
         if not cached_run_success:
-            plan_steps = self._build_plan(query, schema, retrieval)
-            sql = self._generate_sql(query, plan_steps, schema, metric_dictionary, retrieval)
+            plan_steps = self._build_plan(query, schema, retrieval, date_bounds, intent)
+            sql = self._generate_sql(query, plan_steps, schema, metric_dictionary, retrieval, date_bounds, intent)
 
         execution_error = None
         repaired = False
@@ -212,6 +250,7 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
 
         return {
             "query": query,
+            "intent": intent,
             "plan": plan_steps,
             "sql": sql,
             "repaired": repaired,
