@@ -88,12 +88,12 @@
         "table": "aaravsharma_6y_transactions_2019_11_to_2025_10",
         "primary_key_guess": null,
         "time_column_guess": "Txn Date",
-        "description": "A table containing 6 years of transaction data for a single account, including details like transaction date, description, merchant, category, and amounts.",
+        "description": "A table containing transaction details for a bank account over a 6-year period.",
         "columns": [
           {
             "name": "Account",
             "semantic_type": "identifier",
-            "business_meaning": "Unique identifier for the account associated with the transactions.",
+            "business_meaning": "Unique identifier for the bank account.",
             "pii_risk": "medium"
           },
           {
@@ -105,43 +105,43 @@
           {
             "name": "Value Date",
             "semantic_type": "time",
-            "business_meaning": "Date when the transaction value was posted to the account.",
+            "business_meaning": "Date when the transaction value was realized.",
             "pii_risk": "none"
           },
           {
             "name": "Description",
             "semantic_type": "text",
-            "business_meaning": "Detailed description of the transaction.",
+            "business_meaning": "Description of the transaction.",
             "pii_risk": "low"
           },
           {
             "name": "Ref/Cheque No.",
             "semantic_type": "identifier",
-            "business_meaning": "Reference or cheque number associated with the transaction.",
-            "pii_risk": "low"
+            "business_meaning": "Reference or cheque number for the transaction.",
+            "pii_risk": "none"
           },
           {
             "name": "Merchant",
             "semantic_type": "text",
-            "business_meaning": "Name of the merchant or entity involved in the transaction.",
-            "pii_risk": "low"
+            "business_meaning": "Name of the merchant involved in the transaction.",
+            "pii_risk": "none"
           },
           {
             "name": "MCC",
             "semantic_type": "category",
-            "business_meaning": "Merchant Category Code, a 4-digit number representing the merchant's business category.",
+            "business_meaning": "Merchant Category Code, representing the type of business.",
             "pii_risk": "none"
           },
           {
             "name": "Category",
             "semantic_type": "category",
-            "business_meaning": "Broad category of the transaction (e.g., Income, Housing, Utilities).",
+            "business_meaning": "Category of the transaction (e.g., Income, Housing, Utilities).",
             "pii_risk": "none"
           },
           {
             "name": "Channel",
             "semantic_type": "category",
-            "business_meaning": "Channel through which the transaction was conducted (e.g., NEFT, POS, NET).",
+            "business_meaning": "Channel through which the transaction was made (e.g., NEFT, POS, NET).",
             "pii_risk": "none"
           },
           {
@@ -173,8 +173,8 @@
   },
   "instant_insights": {
     "confidence": 85,
-    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the dataset.",
-    "key_trend": "Recurring grocery and fuel expenses are evident, with multiple transactions at BigBasket and fuel stations throughout the month.",
+    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the debit transactions.",
+    "key_trend": "Recurring grocery and fuel expenses are evident, with multiple transactions at BigBasket and fuel pumps throughout the month.",
     "top_insight": "The dataset reflects a balanced mix of income and essential expenses, with a focus on housing, utilities, groceries, and transport, indicating a typical monthly financial pattern."
   }
 }

@@ -65,6 +65,7 @@ export default function Hero() {
     
     setFile(selectedFile);
     setUploadStatus('uploading');
+    setChatStatus('idle'); // Prevent rendering before upload completes
     
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -73,22 +74,24 @@ export default function Hero() {
       await axios.post('/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+      // After successful upload, immediately fetch the initial contextual analysis
       setUploadStatus('success');
-      setChatStatus('loading');
-      
-      // Request its first analysis of the data robustly so the graph and insights render
+      setChatStatus('loading'); // Begin loading state immediately for the chat stream
+
       try {
-        const initialQuery = "Give me a comprehensive initial analysis of this dataset. What is the most critical trend or distribution? Make sure to use GROUP BY to compare categories or time series so it can be visualized.";
-        const firstAnalysis = await axios.post('/api/chat', { query: initialQuery });
+        const initialQuery = "Give me a high-level summary of what this entire dataset is about and what specific information it contains. Explain the most important metrics or categories concisely. Make sure to query the data using an SQL GROUP BY statement for the most significant category so we can visualize its distribution.";
+        const firstAnalysis = await axios.post('/api/chat', { query: initialQuery }, { timeout: 60000 });
         setChatResponse(firstAnalysis.data);
         setChatStatus('success');
       } catch (analyzeErr) {
         console.error("Could not fetch initial analysis", analyzeErr);
         setChatStatus('error');
+        // Do not crash the upload flow
       }
     } catch (err) {
       console.error(err);
       setUploadStatus('error');
+      setChatStatus('error');
     }
   };
 
@@ -307,23 +310,6 @@ export default function Hero() {
                         )}
                       </div>
                     </div>
-
-                    {/* SQL Debug Bubble */}
-                    {chatResponse.sql && (
-                      <div className="pl-11 flex-shrink-0">
-                        <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-inner">
-                          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800/80 border-b border-slate-700/50">
-                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
-                              <TerminalSquare size={12} /> Executed SQL
-                            </span>
-                            <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1"><CheckCircle size={10}/> Schema Aware</span>
-                          </div>
-                          <pre className="p-3 text-xs text-indigo-200 overflow-x-auto font-mono">
-                            <code>{chatResponse.sql}</code>
-                          </pre>
-                        </div>
-                      </div>
-                    )}
                     
                     {/* Rows Debug Output & Auto-Generated Chart */}
                     {chatResponse.rows?.length > 0 && (
@@ -393,6 +379,13 @@ export default function Hero() {
                     )}
                   </motion.div>
                 </AnimatePresence>
+              )}
+
+              {chatStatus === 'error' && (
+                <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 text-rose-700 text-sm flex gap-2">
+                  <AlertCircle size={18} className="flex-shrink-0" />
+                  <p>An error occurred mapping or interpreting your data. Please check your file or try another question.</p>
+                </div>
               )}
             </div>
           </motion.div>

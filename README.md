@@ -1,94 +1,67 @@
-# Vantage: Universal Text-to-SQL (Self-Service)
+# 🧿 Vantage: Universal Agentic Data Intelligence
 
-Vantage is a self-service intelligence platform: upload any valid CSV/Excel, and immediately "talk" to it through a Streamlit dashboard or Slack.
+Vantage is a high-performance, self-service intelligence platform designed to eliminate hallucinations and lower the barrier to analytics. Upload any valid CSV or Excel file, and instantly "talk" to your data through a premium, dynamically animated Streamlit dashboard or via our enterprise Slack bot. 
 
-## Why this architecture works
-
-Vantage uses a **Triple-Layer Brain**:
-
-1. **Ingestion Engine (Auto-Onboarding)**
-   - Profiles incoming data with `pandas` + Gemini Flash
-   - Generates:
-     - `metadata.json` with a **Context Graph**
-     - `metric_dictionary.yaml` with reusable SQL formulas
-   - Stores semantic column meanings in ChromaDB
-
-2. **Orchestration Layer (TAG + CSR-RAG)**
-   - **Planner (TAG):** decomposes user intent into steps
-   - **Synthesizer:** builds SQLite SQL using metric dictionary formulas
-   - **Critic (CSR-RAG):** executes SQL, catches failures, and performs one schema-aware repair pass
-
-3. **Delivery Layer**
-   - **Narrator:** explains answers in plain business language
-   - **Privacy Filter:** masks PII via regex + LLM entity redaction
+Vantage bridges the gap between raw data and verifiable business insights using a state-of-the-art Quad-Layer reasoning architecture.
 
 ---
 
-## Context Graph Engineering (Core Differentiator)
+## 🚀 Key Features
 
-Vantage does **Context Graph Engineering**, not just table loading.
+### 1. Quad-Layer Intelligence Engine (Zero Hallucination)
+- **GraphRAG & GBEC Cache:** Converts flat tables into a rich semantic ontology and caches queries via L2-distance in ChromaDB for instant, zero-latency retrieval.
+- **TASG & Auto-Repair (CSR-RAG):** Generates time-aware SQL grounded in dataset bounds. Actively catches syntax failures and auto-repairs invisibly using a secondary LLM loop.
 
-- It converts raw columns into business entities and semantic types.
-- It stores relationships and metric semantics in machine-readable form.
-- It indexes definitions (not raw rows) in ChromaDB for reliable semantic retrieval.
+### 2. Explainable AI & Intelligence Canvas
+- **The "Why" Engine (MADD):** Instead of just answering *what*, Vantage proactively extracts underlying drivers, calculates % contributions, and explains *why* numbers changed.
+- **Dynamic Exploration:** Features natural chat, step-by-step reasoning traces, auto-generated Plotly visuals, and context-aware follow-up suggestions to guide analytical discovery.
 
-This makes the platform resilient across different datasets without manual schema tuning.
+### 3. Instant "Data DNA" Onboarding
+- **Universal dataset compatibility:** Drop in **any** CSV/Excel (no fixed schema required).
+- The pipeline instantly pre-computes bounds, defines semantic types, redacts incoming PII, and extracts zero-query insights (dominating drivers, anomalies, trends) before you even ask a question.
 
----
-
-## Project Structure
-
-- `ingestor.py` — upload ingestion, SQLite creation, metadata/metrics generation, Chroma indexing
-- `brain.py` — `ask_data(query)` with TAG planning + SQL synthesis + CSR repair loop
-- `narrator.py` — PII redaction + two-sentence summary
-- `interfaces.py` — Streamlit UI and Slack Bolt listener
-- `vantage_llm.py` — Gemini Flash + embeddings helper
-- `requirements.txt` — Python dependencies
-- `.env.example` — required environment variables
+### 4. Modular Premium UI & Omni-Channel Slack
+- **3-Panel Glassmorphism Dashboard:** Independent scroll zones for Data DNA (Left), Interactive Chat Canvas (Center), and Trust & Execution visibility (Right) utilizing an unbroken ChatGPT-style interaction flow.
+- **Enterprise Slack Bot:** Seamlessly interrogate datasets via responsive Slack Block Kit layouts for intelligent insights anywhere outside the dashboard.
 
 ---
 
-## Setup
+## 📂 Project Architecture
 
-1. Create and activate a Python environment.
-2. Install dependencies.
-3. Copy `.env.example` to `.env` and fill in API keys/tokens.
+![alt text](image.png)
 
-### Minimal run (Streamlit)
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env
-streamlit run interfaces.py
-```
-
-### Ingest via CLI (optional)
-
-```bash
-python ingestor.py /path/to/transactions.csv
-```
-
-### Slack listener
-
-```bash
-python interfaces.py --mode slack
-```
+Vantage operates on a secure, closed-loop **Triple-Layer Pipeline**:
+1. **Ingestor (The Loader):** Raw flat files are scrubbed, mapped into a secure SQLite database, and conceptually pushed into a ChromaDB semantic index.
+2. **Brain (The Orchestrator):** Human questions trigger a TAG-planner that checks memory caches, generates SQL securely, and autonomously auto-repairs any syntax or schema mismatches in milliseconds.
+3. **Delivery (The Explainer):** Output is piped through a narrator to strip PII and calculate data drivers before being pushed to the Streamlit UI or Slack Bot.
 
 ---
 
-## Expected Flow
+## 🛠️ Quickstart & Setup
 
-1. Upload a CSV/Excel file.
-2. Vantage auto-generates Context Graph + Metric Dictionary.
-3. Ask a question (UI or Slack).
-4. TAG planner creates query plan.
-5. SQL is synthesized and validated with one CSR repair iteration if needed.
-6. Result is privacy-filtered and narrated in simple language.
+1. **Environment Initialization**
+   Create and activate a Python 3.10+ virtual environment.
+   ```bash
+   pip install -r requirements.txt
+   cp .env.example .env
+   ```
+   *Fill in your required LLM and Slack API keys inside `.env`.*
+
+2. **Run the Primary Dashboard**
+   ```bash
+   streamlit run Home.py
+   ```
+
+3. **CLI Data Ingestion (Optional)**
+   ```bash
+   python ingestor.py /path/to/your_data.csv
+   ```
+
+4. **Launch the Slack Agent**
+   ```bash
+   python interfaces.py --mode slack
+   ```
 
 ---
 
-## Notes
-
-- SQLite is used as the execution backend.
-- Gemini Flash is used for all LLM reasoning tasks.
-- ChromaDB stores semantic metadata embeddings for retrieval.
+*Vantage sets a new standard for text-to-SQL — where stunning design meets unparalleled factual integrity.*
