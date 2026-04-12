@@ -5,7 +5,7 @@ import json
 # Set dummy env vars before importing anything
 os.environ["GEMINI_API_KEY"] = "mock_key_for_demo"
 
-from vantage_llm import GeminiClient
+from vantage_llm import LLMClient
 from ingestor import VantageIngestor
 from brain import ask_data
 from narrator import Narrator
@@ -65,9 +65,9 @@ def mock_text(self, prompt, **kwargs):
 
 print("--- 🎬 Vantage Mock Demonstration ---")
 
-with patch.object(GeminiClient, 'json', autospec=True) as mock_j, \
-     patch.object(GeminiClient, 'embed_texts', autospec=True) as mock_e, \
-     patch.object(GeminiClient, 'text', autospec=True) as mock_t:
+with patch.object(LLMClient, 'json', autospec=True) as mock_j, \
+     patch.object(LLMClient, 'embed_texts', autospec=True) as mock_e, \
+     patch.object(LLMClient, 'text', autospec=True) as mock_t:
      
     mock_j.side_effect = mock_json
     mock_e.side_effect = mock_embed_texts

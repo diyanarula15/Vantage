@@ -1,13 +1,14 @@
+import hashlib
 import json
 import os
 import sqlite3
-from typing import Any
+from typing import Any, Optional
 
 import chromadb
 import yaml
 from dotenv import load_dotenv
 
-from vantage_llm import GeminiClient
+from vantage_llm import LLMClient
 
 
 load_dotenv()
@@ -20,7 +21,7 @@ class VantageBrain:
         self.metrics_path = os.getenv("VANTAGE_METRICS_PATH", "./data/metric_dictionary.yaml")
         self.chroma_path = os.getenv("VANTAGE_CHROMA_PATH", "./data/chroma")
 
-        self.llm = GeminiClient()
+        self.llm = LLMClient()
         self.chroma_client = chromadb.PersistentClient(path=self.chroma_path)
 
     def _load_metadata(self) -> dict[str, Any]:
@@ -35,9 +36,8 @@ class VantageBrain:
         with open(self.metrics_path, "r", encoding="utf-8") as file:
             return yaml.safe_load(file) or {"metrics": []}
 
-    def _search_semantics(self, query: str, top_k: int = 8) -> dict[str, Any]:
-        collection = self.chroma_client.get_or_create_collection("column_semantics")
-        embedding = self.llm.embed_texts([query])[0]
+    def _search_semantics(self, embedding: list[float], top_k: int = 8) -> dict[str, Any]:
+        collection = self.chroma_client.get_or_create_collection("column_semantics_v3")
         result = collection.query(query_embeddings=[embedding], n_results=top_k)
 
         metadatas = result.get("metadatas", [[]])[0]
@@ -46,6 +46,33 @@ class VantageBrain:
             "metadatas": metadatas,
             "documents": documents,
         }
+
+    def _check_cache(self, embedding: list[float]) -> Optional[str]:
+        collection = self.chroma_client.get_or_create_collection("semantic_cache")
+        try:
+            result = collection.query(query_embeddings=[embedding], n_results=1)
+            if not result.get("ids") or not result["ids"][0]:
+                return None
+            
+            distance = result["distances"][0][0]
+            threshold = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.20"))
+            if distance <= threshold:
+                metadatas = result["metadatas"][0][0]
+                return metadatas.get("sql")
+        except Exception:
+            return None
+        return None
+
+    def _save_to_cache(self, query: str, sql: str, embedding: list[float]) -> None:
+        collection = self.chroma_client.get_or_create_collection("semantic_cache")
+        query_hash = hashlib.md5(query.encode("utf-8")).hexdigest()
+        
+        collection.upsert(
+            ids=[query_hash],
+            documents=[query],
+            embeddings=[embedding],
+            metadatas=[{"sql": sql}]
+        )
 
     def _build_plan(
         self,
@@ -136,30 +163,52 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
     def ask_data(self, query: str) -> dict[str, Any]:
         metadata = self._load_metadata()
         metric_dictionary = self._load_metrics()
-
         schema = metadata.get("schema", {})
-        retrieval = self._search_semantics(query)
 
-        plan_steps = self._build_plan(query, schema, retrieval)
-        sql = self._generate_sql(query, plan_steps, schema, metric_dictionary, retrieval)
+        embedding = self.llm.embed_texts([query])[0]
+        cached_sql = self._check_cache(embedding)
+
+        retrieval = self._search_semantics(embedding)
+        plan_steps = []
+        sql = ""
+        execution_error = None
+        repaired = False
+        columns, rows = [], []
+        cached_run_success = False
+
+        if cached_sql:
+            try:
+                columns, rows = self._run_sql(cached_sql)
+                sql = cached_sql
+                plan_steps = ["Used cached SQL"]
+                cached_run_success = True
+            except Exception:
+                pass # Fall back to full synthesis
+        
+        if not cached_run_success:
+            plan_steps = self._build_plan(query, schema, retrieval)
+            sql = self._generate_sql(query, plan_steps, schema, metric_dictionary, retrieval)
 
         execution_error = None
         repaired = False
 
-        try:
-            columns, rows = self._run_sql(sql)
-        except Exception as error:
-            execution_error = str(error)
-            repaired_sql = self._repair_sql_once(
-                original_sql=sql,
-                error_message=execution_error,
-                schema=schema,
-                metric_dictionary=metric_dictionary,
-                query=query,
-            )
-            columns, rows = self._run_sql(repaired_sql)
-            sql = repaired_sql
-            repaired = True
+        if not cached_run_success:
+            try:
+                columns, rows = self._run_sql(sql)
+                self._save_to_cache(query, sql, embedding)
+            except Exception as error:
+                execution_error = str(error)
+                repaired_sql = self._repair_sql_once(
+                    original_sql=sql,
+                    error_message=execution_error,
+                    schema=schema,
+                    metric_dictionary=metric_dictionary,
+                    query=query,
+                )
+                columns, rows = self._run_sql(repaired_sql)
+                sql = repaired_sql
+                repaired = True
+                self._save_to_cache(query, sql, embedding)
 
         return {
             "query": query,

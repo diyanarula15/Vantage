@@ -10,7 +10,7 @@ import pandas as pd
 import yaml
 from dotenv import load_dotenv
 
-from vantage_llm import GeminiClient
+from vantage_llm import LLMClient
 
 
 load_dotenv()
@@ -35,7 +35,7 @@ class VantageIngestor:
         Path(self.metrics_path).parent.mkdir(parents=True, exist_ok=True)
         Path(self.chroma_path).mkdir(parents=True, exist_ok=True)
 
-        self.llm = GeminiClient()
+        self.llm = LLMClient()
         self.chroma_client = chromadb.PersistentClient(path=self.chroma_path)
 
     def _read_file(self, file_path: str) -> pd.DataFrame:
@@ -145,7 +145,7 @@ Rules:
         table_name: str,
         context_graph: dict[str, Any],
     ) -> None:
-        collection = self.chroma_client.get_or_create_collection("column_semantics")
+        collection = self.chroma_client.get_or_create_collection("column_semantics_v3")
 
         entities = context_graph.get("entities", [])
         column_payload: list[dict[str, Any]] = []

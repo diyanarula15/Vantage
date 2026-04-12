@@ -2,7 +2,7 @@ import json
 import re
 from typing import Any
 
-from vantage_llm import GeminiClient
+from vantage_llm import LLMClient
 
 
 EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
@@ -12,7 +12,7 @@ SSN_REGEX = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
 
 class Narrator:
     def __init__(self) -> None:
-        self.llm = GeminiClient()
+        self.llm = LLMClient()
 
     def _regex_redact_text(self, value: str) -> str:
         value = EMAIL_REGEX.sub("[REDACTED_EMAIL]", value)
