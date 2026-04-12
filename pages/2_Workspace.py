@@ -1,12 +1,16 @@
 import html
 import os
 import sys
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from dotenv import load_dotenv
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_ROOT / ".env", override=True)
+sys.path.append(str(_ROOT))
 
 from workspace_insight_ui import (
     build_driver_bar_chart,
@@ -76,10 +80,89 @@ st.set_page_config(page_title="Vantage | Workspace", page_icon="🧿", layout="w
 st.markdown(
     """
 <style>
+/* Bright Premium Vibe */
 [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #F7FAFF; color: #122033; }
 [data-testid="stSidebar"] { background-color: #EEF4FF; border-right: 1px solid #DCE6F5; }
 h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', 'Sora', sans-serif; font-weight: 700; color: #122033; }
 p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
+
+/* FULL SCREEN FIXED LAYOUT / INDEPENDENT SCROLL */
+[data-testid="stAppViewContainer"] {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+div.block-container, [data-testid="stMainBlockContainer"] {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  padding-top: 1.5rem !important;
+  padding-bottom: 0 !important;
+}
+
+/* Constrain the row wrapper tightly to the screen so columns MUST overflow */
+/* Constrain ONLY the top-level row wrapper tightly to the screen so columns MUST overflow */
+div[data-testid="stHorizontalBlock"] {
+  height: calc(100vh - 4rem) !important;
+  max-height: calc(100vh - 4rem) !important;
+  align-items: stretch !important;
+}
+
+/* Make EVERY column internally scrollable bounding to the parent row */
+div[data-testid="column"], div[data-testid="stColumn"], div[data-testid="stHorizontalBlock"] > div {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 12px !important; 
+}
+
+/* 🛑 CRITICAL FIX: Reset any NESTED columns (e.g. st.columns inside chat messages for buttons) so they don't stretch to 100vh! */
+div[data-testid="stHorizontalBlock"] div[data-testid="stHorizontalBlock"] {
+  height: auto !important;
+  max-height: none !important;
+  align-items: stretch !important;
+}
+div[data-testid="stHorizontalBlock"] div[data-testid="stHorizontalBlock"] > div {
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  padding-right: 5px !important;
+  padding-bottom: 0px !important;
+}
+
+/* Force squash any invisible padding blocks Streamlit native components inject at the bottom */
+div[data-testid="stBottomBlockContainer"], 
+div[data-testid="stBottom"],
+div[class*="stBottomSpacer"] {
+  height: 0px !important;
+  min-height: 0px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Eliminate native chat message margins that compound aggressively */
+div[data-testid="stChatMessage"] {
+  margin-bottom: 8px !important;
+}
+
+/* No extra padding needed, layout handles whitespace natively */
+
+div[data-testid="column"]::-webkit-scrollbar, div[data-testid="stColumn"]::-webkit-scrollbar, div[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar { width: 6px; }
+div[data-testid="column"]::-webkit-scrollbar-thumb, div[data-testid="stColumn"]::-webkit-scrollbar-thumb, div[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar-thumb { background-color: #DCE8FF; border-radius: 4px; }
+
+/* Sticky chat input at bottom of center panel */
+div[data-testid="stChatInput"] {
+  position: sticky !important;
+  bottom: 0px !important;
+  z-index: 9999 !important;
+  padding: 16px 0 24px 0 !important;
+  background: #F7FAFF !important;
+  box-shadow: 0 -12px 20px rgba(247, 250, 255, 0.95);
+}
 
 @keyframes vantageFadeUp {
   from { opacity: 0; transform: translateY(10px); }
@@ -93,31 +176,31 @@ p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
 .insight-card, .trust-panel, .breakdown-panel, .concepts-card {
   background-color: #FFFFFF;
   border: 1px solid #E8EEF8;
-  border-radius: 12px;
-  padding: 20px 22px;
-  box-shadow: 0 8px 28px rgba(83, 111, 168, 0.07);
-  margin-bottom: 16px;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(83, 111, 168, 0.05);
+  margin-bottom: 24px;
 }
 .breakdown-panel {
-  border-radius: 12px;
-  padding: 22px 24px;
-  box-shadow: 0 12px 36px rgba(76, 141, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 36px rgba(76, 141, 255, 0.08);
   border: 1px solid #DCE8FF;
 }
 .insight-headline {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #122033;
   line-height: 1.35;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   letter-spacing: -0.02em;
 }
 .key-insight-block {
   background: linear-gradient(135deg, #F8FAFF 0%, #EEF4FF 100%);
   border: 1px solid #C5D8FF;
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 4px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 6px;
 }
 .key-insight-label {
   display: block;
@@ -141,18 +224,18 @@ p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #4C8DFF;
-  margin: 14px 0 10px 0;
+  margin: 18px 0 12px 0;
 }
-.drivers-list { display: flex; flex-direction: column; gap: 10px; }
+.drivers-list { display: flex; flex-direction: column; gap: 12px; }
 .driver-row {
   background: #FAFBFF;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 12px 16px;
 }
 .driver-row-top {
   background: linear-gradient(90deg, #FFF8F8 0%, #FAFBFF 100%);
-  box-shadow: 0 2px 12px rgba(155, 28, 28, 0.08);
-  padding: 12px 14px !important;
+  box-shadow: 0 2px 14px rgba(155, 28, 28, 0.06);
+  padding: 16px !important;
 }
 .driver-row-main { display: flex; justify-content: flex-start; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .driver-rank {
@@ -163,32 +246,32 @@ p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
 }
 .driver-row-top .driver-rank { font-size: 12px; color: #7A1518; }
 .driver-row-top-inflow .driver-rank { color: #065F46 !important; }
-.driver-row-top-inflow { background: linear-gradient(90deg, #F0FDF7 0%, #FAFBFF 100%) !important; box-shadow: 0 2px 12px rgba(6, 95, 70, 0.08) !important; }
+.driver-row-top-inflow { background: linear-gradient(90deg, #F0FDF7 0%, #FAFBFF 100%) !important; box-shadow: 0 2px 14px rgba(6, 95, 70, 0.06) !important; }
 .driver-label { font-size: 14px; font-weight: 600; color: #4A5A70; flex: 1 1 auto; }
 .driver-row-top .driver-label { font-size: 15px; font-weight: 700; color: #122033; }
 .driver-value { font-size: 15px; font-weight: 700; margin-left: auto; }
 .driver-row-top .driver-value { font-size: 17px; font-weight: 800; }
-.driver-meta { display: flex; justify-content: space-between; font-size: 12px; color: #7C8CA3; margin-top: 6px; }
+.driver-meta { display: flex; justify-content: space-between; font-size: 12px; color: #7C8CA3; margin-top: 8px; }
 .driver-row-top .driver-meta { font-size: 13px; }
 .driver-impact { font-weight: 700; letter-spacing: 0.02em; }
 .driver-empty { font-size: 13px; color: #7C8CA3; margin: 8px 0 0 0; }
 .narrative-block {
-  font-size: 14px;
+  font-size: 15px;
   color: #4A5A70;
-  line-height: 1.55;
-  margin-top: 16px;
-  padding-top: 14px;
+  line-height: 1.6;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid #EEF2FA;
 }
-.drill-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.pill-note { font-size: 11px; color: #A5B2C5; margin-top: 6px; }
+.drill-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.pill-note { font-size: 12px; color: #A5B2C5; margin-top: 8px; }
 
 .trust-badge {
   display: inline-block;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 0 8px 8px 0;
@@ -202,16 +285,46 @@ p, span, div { font-family: 'Inter', sans-serif; color: #4A5A70; }
 .concepts-card h4 {
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-weight: 800;
   color: #4C8DFF;
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
 }
-.concepts-card ul { margin: 0; padding-left: 18px; color: #4A5A70; font-size: 13px; line-height: 1.5; }
+.concepts-card ul { margin: 0; padding-left: 20px; color: #4A5A70; font-size: 14px; line-height: 1.6; }
 
-.followup-wrap { margin-top: 8px; margin-bottom: 8px; }
-.followup-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #7C8CA3; margin-bottom: 8px; }
+.followup-wrap { margin-top: 12px; margin-bottom: 12px; }
+.followup-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #7C8CA3; margin-bottom: 10px; }
 
-.stCodeBlock { border-radius: 12px; }
+/* Obsolete but kept just in case */
+.instant-insights-panel {
+  background: #FFFFFF;
+  border: 1px solid #DCE8FF;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 18px rgba(76, 141, 255, 0.07);
+}
+.instant-insights-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4C8DFF;
+  margin-bottom: 8px;
+}
+.instant-insights-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #4A5A70;
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.55;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.stCodeBlock { border-radius: 16px; }
 .stDeployButton { display: none; }
 
 div[data-testid="column"] .stButton button {
@@ -221,7 +334,7 @@ div[data-testid="column"] .stButton button {
   border: 1px solid #DCE6F5 !important;
   background: #FFFFFF !important;
   color: #122033 !important;
-  padding: 0.35rem 0.9rem !important;
+  padding: 0.4rem 1rem !important;
 }
 div[data-testid="column"] .stButton button:hover {
   border-color: #4C8DFF !important;
@@ -268,6 +381,8 @@ with left_col:
     """,
         unsafe_allow_html=True,
     )
+
+    _ins = meta.get("instant_insights") or {}
 
     with st.expander("Detected Schema", expanded=True):
         st.markdown(
@@ -316,7 +431,32 @@ with left_col:
 
 # --- CENTER: INTELLIGENCE CANVAS ---
 with center_col:
-    st.markdown("<h2 style='color:#122033;'>Intelligence Canvas</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#122033; margin-bottom: 24px;'>Intelligence Canvas</h2>", unsafe_allow_html=True)
+    
+    meta = st.session_state.dataset_meta
+    _ins = meta.get("instant_insights") or {}
+    if _ins:
+        bd = html.escape(str(_ins.get("biggest_driver", "")))
+        kt = html.escape(str(_ins.get("key_trend", _ins.get("key_trend_or_change", ""))))
+        ti = html.escape(str(_ins.get("top_insight", _ins.get("third_insight", ""))))
+        conf = _ins.get("confidence", 0)
+        
+        insights_html = ""
+        if bd: insights_html += f"<li style='margin-bottom: 10px;'><b>{bd}</b></li>"
+        if kt: insights_html += f"<li style='margin-bottom: 10px;'><b>{kt}</b></li>"
+        if ti: insights_html += f"<li><b>{ti}</b></li>"
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(145deg, #FFFFFF 0%, #FAFBFF 100%); border: 1px solid #C5D8FF; box-shadow: 0 12px 32px rgba(76, 141, 255, 0.12); padding: 28px; border-radius: 20px; margin-bottom: 32px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                <h3 style="margin: 0; color: #122033; font-size: 1.35rem; display: flex; align-items: center; gap: 8px;">✨ Instant Insights</h3>
+                <span class='trust-badge badge-success' style="margin: 0; padding: 6px 12px;">Confidence: {conf}%</span>
+            </div>
+            <ul style="margin: 0; padding-left: 20px; line-height: 1.7; color: #3A4A5E; font-size: 16px;">
+                {insights_html}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     for msg_i, item in enumerate(st.session_state.chat_history):
         if item["role"] == "user":
@@ -451,18 +591,6 @@ with center_col:
                 """,
                     unsafe_allow_html=True,
                 )
-
-                chips = follow_up_chips_for_context(headline, drivers)
-                st.markdown(
-                    "<div class='followup-wrap'><div class='followup-label'>Try next</div></div>",
-                    unsafe_allow_html=True,
-                )
-                fc = st.columns(len(chips))
-                for i, chip in enumerate(chips):
-                    with fc[i]:
-                        if st.button(chip, key=f"chip_{msg_i}_{i}"):
-                            st.session_state.queued_prompt = chip
-                            st.rerun()
 
                 with st.expander("🛠️ View SQL & source rows"):
                     st.code(content.get("sql", "No SQL generated"), language="sql")

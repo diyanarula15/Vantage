@@ -8,18 +8,19 @@ metrics:
   sql_formula: SUM(Credit)
   grain_hint: monthly
 - name: Net Cash Flow
-  description: Net cash flow (Total Credit - Total Debit) over a period.
+  description: Net cash flow (Credits - Debits) over a period.
   sql_formula: SUM(Credit) - SUM(Debit)
   grain_hint: monthly
-- name: Average Monthly Expenses
-  description: Average monthly expenses (Debit) over a period.
-  sql_formula: AVG(SUM(Debit) OVER (PARTITION BY STRFTIME('%Y-%m', `Txn Date`)))
+- name: Average Monthly Balance
+  description: Average balance of the account over a month.
+  sql_formula: AVG(Balance)
   grain_hint: monthly
-- name: Average Monthly Income
-  description: Average monthly income (Credit) over a period.
-  sql_formula: AVG(SUM(Credit) OVER (PARTITION BY STRFTIME('%Y-%m', `Txn Date`)))
-  grain_hint: monthly
+- name: Total Spending by Category
+  description: Total spending grouped by transaction category.
+  sql_formula: SUM(Debit) GROUP BY Category
+  grain_hint: category
 - name: Churn Rate
-  description: Rate of account churn based on transactions (e.g., closure or inactivity).
-  sql_formula: CASE WHEN MAX(`Txn Date`) < DATE('now', '-30 days') THEN 1 ELSE 0 END
-  grain_hint: row
+  description: Percentage of accounts with no transactions in the last 6 months.
+  sql_formula: COUNT(DISTINCT CASE WHEN MAX(Txn Date) < DATE('now', '-6 months') THEN
+    Account END) * 1.0 / COUNT(DISTINCT Account)
+  grain_hint: unknown

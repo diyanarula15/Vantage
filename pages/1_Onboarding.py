@@ -62,7 +62,7 @@ with col2:
         progress.progress(50)
         time.sleep(1)
         
-        status_text.markdown("#### 3. Defining Metric Dictionary & Semantic Index 🧠<br><span style='color:#7C8CA3; font-size:12px;'>Calling Gemini Flash...</span>", unsafe_allow_html=True)
+        status_text.markdown("#### 3. Defining Metric Dictionary & Semantic Index 🧠<br><span style='color:#7C8CA3; font-size:12px;'>Calling Cohere...</span>", unsafe_allow_html=True)
         
         try:
             ingestor = VantageIngestor()
