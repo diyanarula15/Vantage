@@ -1,12 +1,15 @@
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
 
 import cohere
 
+_env_dir = Path(__file__).resolve().parent
+load_dotenv(_env_dir / ".env")
 load_dotenv()
 
 def _extract_json_block(raw_text: str) -> Any:
@@ -51,10 +54,15 @@ class LLMClient:
         response_text = self.text(json_prompt)
         return _extract_json_block(response_text)
 
-    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    def embed_texts(
+        self,
+        texts: list[str],
+        *,
+        input_type: str = "search_document",
+    ) -> list[list[float]]:
         response = self.client.embed(
             texts=texts,
             model=self.embed_model_name,
-            input_type="search_document"
+            input_type=input_type,
         )
         return response.embeddings

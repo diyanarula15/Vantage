@@ -203,7 +203,7 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
         date_bounds = metadata.get("date_bounds", {})
 
         intent = self._route_intent(query)
-        embedding = self.llm.embed_texts([query])[0]
+        embedding = self.llm.embed_texts([query], input_type="search_query")[0]
         cached_sql, cache_distance = self._check_cache(embedding)
 
         retrieval = self._search_semantics(embedding)
@@ -236,17 +236,23 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
                 self._save_to_cache(query, sql, embedding)
             except Exception as error:
                 execution_error = str(error)
-                repaired_sql = self._repair_sql_once(
-                    original_sql=sql,
-                    error_message=execution_error,
-                    schema=schema,
-                    metric_dictionary=metric_dictionary,
-                    query=query,
-                )
-                columns, rows = self._run_sql(repaired_sql)
-                sql = repaired_sql
-                repaired = True
-                self._save_to_cache(query, sql, embedding)
+                try:
+                    repaired_sql = self._repair_sql_once(
+                        original_sql=sql,
+                        error_message=execution_error,
+                        schema=schema,
+                        metric_dictionary=metric_dictionary,
+                        query=query,
+                    )
+                    columns, rows = self._run_sql(repaired_sql)
+                    sql = repaired_sql
+                    repaired = True
+                    self._save_to_cache(query, sql, embedding)
+                except Exception as repair_error:
+                    execution_error += f" | Repair also failed: {str(repair_error)}"
+                    columns, rows = [], []
+                    repaired = True
+                    sql = repaired_sql if 'repaired_sql' in locals() else sql
 
         return {
             "query": query,

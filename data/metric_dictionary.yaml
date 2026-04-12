@@ -1,5 +1,25 @@
 metrics:
-- name: Total Sales
-  description: Sum of all sales revenue
-  sql_formula: SUM(Sales)
+- name: Total Debit Amount
+  description: Total amount debited from the account over a period.
+  sql_formula: SUM(Debit)
+  grain_hint: monthly
+- name: Total Credit Amount
+  description: Total amount credited to the account over a period.
+  sql_formula: SUM(Credit)
+  grain_hint: monthly
+- name: Net Cash Flow
+  description: Net cash flow (Total Credit - Total Debit) over a period.
+  sql_formula: SUM(Credit) - SUM(Debit)
+  grain_hint: monthly
+- name: Average Monthly Expenses
+  description: Average monthly expenses (Debit) over a period.
+  sql_formula: AVG(SUM(Debit) OVER (PARTITION BY STRFTIME('%Y-%m', `Txn Date`)))
+  grain_hint: monthly
+- name: Average Monthly Income
+  description: Average monthly income (Credit) over a period.
+  sql_formula: AVG(SUM(Credit) OVER (PARTITION BY STRFTIME('%Y-%m', `Txn Date`)))
+  grain_hint: monthly
+- name: Churn Rate
+  description: Rate of account churn based on transactions (e.g., closure or inactivity).
+  sql_formula: CASE WHEN MAX(`Txn Date`) < DATE('now', '-30 days') THEN 1 ELSE 0 END
   grain_hint: row

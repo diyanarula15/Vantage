@@ -1,21 +1,51 @@
 {
-  "source_file": "sales.csv",
-  "table_name": "sales",
-  "row_count": 5,
-  "column_count": 5,
+  "source_file": "./data/uploads/AaravSharma_6Y_Transactions_2019-11_to_2025-10.csv",
+  "table_name": "aaravsharma_6y_transactions_2019_11_to_2025_10",
+  "row_count": 1230,
+  "column_count": 12,
   "schema": {
     "database": "./data/vantage.db",
-    "table": "sales",
+    "table": "aaravsharma_6y_transactions_2019_11_to_2025_10",
     "columns": [
       {
-        "name": "Date",
+        "name": "Account",
         "sqlite_type": "TEXT",
         "not_null": false,
         "is_pk": false
       },
       {
-        "name": "Region",
+        "name": "Txn Date",
         "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Value Date",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Description",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Ref/Cheque No.",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Merchant",
+        "sqlite_type": "TEXT",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "MCC",
+        "sqlite_type": "REAL",
         "not_null": false,
         "is_pk": false
       },
@@ -26,60 +56,119 @@
         "is_pk": false
       },
       {
-        "name": "Sales",
-        "sqlite_type": "INTEGER",
+        "name": "Channel",
+        "sqlite_type": "TEXT",
         "not_null": false,
         "is_pk": false
       },
       {
-        "name": "CustomerEmail",
-        "sqlite_type": "TEXT",
+        "name": "Debit",
+        "sqlite_type": "REAL",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Credit",
+        "sqlite_type": "REAL",
+        "not_null": false,
+        "is_pk": false
+      },
+      {
+        "name": "Balance",
+        "sqlite_type": "REAL",
         "not_null": false,
         "is_pk": false
       }
     ]
   },
   "context_graph": {
-    "dataset_name": "Sales Data",
+    "dataset_name": "aaravsharma_6y_transactions_2019_11_to_2025_10",
     "entities": [
       {
-        "table": "sales",
+        "table": "aaravsharma_6y_transactions_2019_11_to_2025_10",
         "primary_key_guess": null,
-        "time_column_guess": "Date",
-        "description": "Sales records containing region, category, revenue, and customer contact.",
+        "time_column_guess": "Txn Date",
+        "description": "A table containing transaction details for a bank account over a 6-year period.",
         "columns": [
           {
-            "name": "Date",
+            "name": "Account",
+            "semantic_type": "identifier",
+            "business_meaning": "Unique identifier for the bank account.",
+            "pii_risk": "medium"
+          },
+          {
+            "name": "Txn Date",
             "semantic_type": "time",
-            "business_meaning": "Transaction Date",
+            "business_meaning": "Date when the transaction occurred.",
             "pii_risk": "none"
           },
           {
-            "name": "Region",
-            "semantic_type": "dimension",
-            "business_meaning": "Geographic Sales Region",
+            "name": "Value Date",
+            "semantic_type": "time",
+            "business_meaning": "Date when the transaction value was realized.",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Description",
+            "semantic_type": "text",
+            "business_meaning": "Description of the transaction.",
+            "pii_risk": "low"
+          },
+          {
+            "name": "Ref/Cheque No.",
+            "semantic_type": "identifier",
+            "business_meaning": "Reference or cheque number for the transaction.",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Merchant",
+            "semantic_type": "text",
+            "business_meaning": "Name of the merchant involved in the transaction.",
+            "pii_risk": "none"
+          },
+          {
+            "name": "MCC",
+            "semantic_type": "category",
+            "business_meaning": "Merchant Category Code, indicating the type of business.",
             "pii_risk": "none"
           },
           {
             "name": "Category",
-            "semantic_type": "dimension",
-            "business_meaning": "Product Category",
+            "semantic_type": "category",
+            "business_meaning": "Category of the transaction (e.g., Income, Housing, Utilities).",
             "pii_risk": "none"
           },
           {
-            "name": "Sales",
+            "name": "Channel",
+            "semantic_type": "category",
+            "business_meaning": "Channel through which the transaction was made (e.g., NEFT, POS).",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Debit",
             "semantic_type": "metric",
-            "business_meaning": "Revenue in USD",
+            "business_meaning": "Amount debited from the account.",
             "pii_risk": "none"
           },
           {
-            "name": "CustomerEmail",
-            "semantic_type": "identifier",
-            "business_meaning": "Contact email of buyer",
-            "pii_risk": "high"
+            "name": "Credit",
+            "semantic_type": "metric",
+            "business_meaning": "Amount credited to the account.",
+            "pii_risk": "none"
+          },
+          {
+            "name": "Balance",
+            "semantic_type": "metric",
+            "business_meaning": "Account balance after the transaction.",
+            "pii_risk": "none"
           }
         ]
       }
-    ]
+    ],
+    "relationships": []
+  },
+  "date_bounds": {
+    "min_date": "2019-11-01",
+    "max_date": "2025-10-28"
   }
 }
