@@ -2,6 +2,9 @@
 
 
 Deployed link - https://vantage-app-xgtt.onrender.com
+
+---
+
 Vantage is a plug-and-play data assistant built to actually get the numbers right. Drop in any CSV or Excel file, and you can instantly start asking questions about your data via a sleek React dashboard or directly in Slack. 
 
 We built Vantage to fix the "AI hallucination" problem in data analytics by tightly coupling an LLM to a real SQLite execution engine.
