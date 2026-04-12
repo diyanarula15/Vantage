@@ -7,6 +7,7 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 
 import cohere
+from duckduckgo_search import DDGS
 
 _env_dir = Path(__file__).resolve().parent
 load_dotenv(_env_dir / ".env")
@@ -36,14 +37,25 @@ class LLMClient:
         
         self.client = cohere.Client(api_key=api_key)
 
-    def text(self, prompt: str, response_mime_type: Optional[str] = None) -> str:
+    def text(self, prompt: str, response_mime_type: Optional[str] = None, use_web: bool = False, temperature: float = 0.0, search_query: Optional[str] = None) -> str:
         # Currently Cohere natively supports response_format for JSON format in newer agents, 
         # but the prompt engineering usually works well too.
         # We can pass response_format if requested.
         kwargs = {
             "model": self.model_name,
             "message": prompt,
+            "temperature": temperature,
         }
+        
+        if use_web and search_query:
+            try:
+                with DDGS() as ddgs:
+                    results = [r for r in ddgs.text(search_query, max_results=3)]
+                if results:
+                    # Cohere natively accepts an array of strings or dicts for RAG grounding
+                    kwargs["documents"] = results
+            except Exception as e:
+                print(f"Warning: DuckDuckGo search failed: {e}")
         
         response = self.client.chat(**kwargs)
         return (response.text or "").strip()

@@ -60,18 +60,26 @@ Rows:
     def summarize(self, question: str, rows: list[dict[str, Any]]) -> str:
         preview = rows[:20]
         prompt = f"""
-You are a business narrator for non-technical users.
-Write exactly 2 concise sentences and avoid jargon.
+You are a top-tier business data narrator.
+You are given a question and a subset of internal company data (Result preview). 
+Write 2-3 concise sentences and completely avoid technical jargon.
+
+CRITICAL ACCURACY RULES:
+- The internal 'Result preview' data is the absolute ground truth. NEVER modify, guess, round incorrectly, or contradict the internal numbers. Every metric you state must be 100% accurate to the preview.
+- If using web-searched external context, only provide verified, high-confidence macro facts. Do not mix internal data and external estimates.
 
 RULES:
 1. If the "Result preview" is completely empty or [] or None, you MUST reply exactly with: "No records found matching those parameters in the dataset." Do not hallucinate variables.
-2. If data exists, highlight the biggest contributors, outliers, or notable concentrations (e.g. "X accounted for Y%").
+2. If data exists, synthesize the primary internal data insight first (e.g., biggest contributors, outliers).
+3. IF RELEVANT to the question or industry, leverage your web search knowledge to append 1-2 additional sentences explaining external real-world macro market trends, industry benchmarks, or context that helps explain the internal data. 
+4. If external context is not highly relevant or verified, skip step 3 and stick strictly to interpreting the internal numbers.
+5. Format your answer as a single, continuous, flawlessly blended string. Do NOT use markdown or bullet points.
 
 Question: {question}
 Result preview: {json.dumps(preview, indent=2)}
 """
-        text = self.llm.text(prompt)
-        normalized = " ".join(text.strip().split())
+        text = self.llm.text(prompt, use_web=True, search_query=question)
+        normalized = " ".join(text.strip().replace("\n", " ").split())
         if normalized.count(".") >= 2:
             return normalized
         return f"{normalized} Source reflects the latest uploaded dataset."
