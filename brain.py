@@ -161,13 +161,24 @@ Constraints:
             raise ValueError("Model did not return SQL.")
         return sql
 
+    def _normalize_sql_value(self, value: Any) -> Any:
+        if isinstance(value, (datetime.date, datetime.datetime, datetime.time)):
+            return value.isoformat()
+        return value
+
     def _run_sql(self, sql: str) -> tuple[list[str], list[dict[str, Any]]]:
         with sqlite3.connect(self.db_path) as connection:
             cursor = connection.cursor()
             cursor.execute(sql)
             data = cursor.fetchall()
             columns = [item[0] for item in (cursor.description or [])]
-            rows = [dict(zip(columns, row)) for row in data]
+            rows = []
+            for row in data:
+                normalized_row = {
+                    column: self._normalize_sql_value(value)
+                    for column, value in zip(columns, row)
+                }
+                rows.append(normalized_row)
             return columns, rows
 
     def _repair_sql_once(

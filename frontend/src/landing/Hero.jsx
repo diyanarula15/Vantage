@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { ArrowRight, Sparkles, Zap, Shield, Search, UploadCloud, CheckCircle, AlertCircle, Database, TerminalSquare, Table } from 'lucide-react';
 import axios from 'axios';
+import { DatabaseConnector } from './Sections';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -58,6 +59,7 @@ export default function Hero() {
   const [query, setQuery] = useState('');
   const [chatStatus, setChatStatus] = useState('idle'); // idle | loading | success | error
   const [chatResponse, setChatResponse] = useState(null);
+  const [chatError, setChatError] = useState('');
 
   const handleFileUpload = async (e) => {
     const selectedFile = e.target.files[0];
@@ -77,21 +79,23 @@ export default function Hero() {
       // After successful upload, immediately fetch the initial contextual analysis
       setUploadStatus('success');
       setChatStatus('loading'); // Begin loading state immediately for the chat stream
+      setChatError('');
 
       try {
         const initialQuery = "Give me a high-level summary of what this entire dataset is about and what specific information it contains. Explain the most important metrics or categories concisely. Make sure to query the data using an SQL GROUP BY statement for the most significant category so we can visualize its distribution.";
-        const firstAnalysis = await axios.post('/api/chat', { query: initialQuery }, { timeout: 60000 });
+        const firstAnalysis = await axios.post('/api/chat', { query: initialQuery }, { timeout: 180000 });
         setChatResponse(firstAnalysis.data);
         setChatStatus('success');
       } catch (analyzeErr) {
         console.error("Could not fetch initial analysis", analyzeErr);
         setChatStatus('error');
-        // Do not crash the upload flow
+        setChatError(analyzeErr.response?.data?.detail || analyzeErr.message || 'Unable to fetch initial analysis.');
       }
     } catch (err) {
       console.error(err);
       setUploadStatus('error');
       setChatStatus('error');
+      setChatError(err.response?.data?.detail || err.message || 'Upload failed.');
     }
   };
 
@@ -100,31 +104,35 @@ export default function Hero() {
     if (!query.trim()) return;
     
     setChatStatus('loading');
+    setChatError('');
     try {
-      const res = await axios.post('/api/chat', { query });
+      const res = await axios.post('/api/chat', { query }, { timeout: 180000 });
       setChatResponse(res.data);
       setChatStatus('success');
     } catch (err) {
       console.error(err);
       setChatStatus('error');
+      setChatError(err.response?.data?.detail || err.message || 'Unable to process your question.');
     }
   };
 
   const handleSuggestedAsk = async (q) => {
     setQuery(q);
     setChatStatus('loading');
+    setChatError('');
     try {
-      const res = await axios.post('/api/chat', { query: q });
+      const res = await axios.post('/api/chat', { query: q }, { timeout: 180000 });
       setChatResponse(res.data);
       setChatStatus('success');
     } catch (err) {
       console.error(err);
       setChatStatus('error');
+      setChatError(err.response?.data?.detail || err.message || 'Unable to process your question.');
     }
   };
 
   return (
-    <section ref={containerRef} className="relative pt-16 md:pt-24 pb-20 px-6 overflow-hidden">
+    <section ref={containerRef} className="relative pt-16 md:pt-24 pb-16 px-6 overflow-hidden">
       <div className="absolute inset-0 -z-20">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[700px] bg-gradient-to-b from-indigo-50/60 via-violet-50/30 to-transparent rounded-[50%] blur-3xl" />
         <div className="absolute top-20 right-0 w-[400px] h-[400px] bg-cyan-50/40 rounded-full blur-[100px]" />
@@ -139,7 +147,7 @@ export default function Hero() {
       </div>
       <CursorGlow containerRef={containerRef} />
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12">
         
         {/* Left Side: Copy & Input Forms */}
         <motion.div initial="hidden" animate="visible" className="max-w-2xl pt-4">
@@ -155,7 +163,7 @@ export default function Hero() {
             </span>
           </motion.h1>
 
-          <motion.p variants={fadeUp} custom={2} className="text-lg md:text-xl text-slate-600 mb-10 leading-relaxed max-w-lg">
+          <motion.p variants={fadeUp} custom={2} className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed max-w-lg">
             Experience it right here. Upload any CSV/Excel file, and ask questions in plain English. No SQL required.
           </motion.p>
 
@@ -195,6 +203,10 @@ export default function Hero() {
                   </span>
                 </div>
               </label>
+
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <DatabaseConnector compact />
+              </div>
             </div>
 
             {/* Step 2: Search Bar */}
@@ -382,9 +394,16 @@ export default function Hero() {
               )}
 
               {chatStatus === 'error' && (
-                <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 text-rose-700 text-sm flex gap-2">
-                  <AlertCircle size={18} className="flex-shrink-0" />
-                  <p>An error occurred mapping or interpreting your data. Please check your file or try another question.</p>
+                <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 text-rose-700 text-sm space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={18} className="flex-shrink-0 mt-1" />
+                    <p>An error occurred mapping or interpreting your data. Please check your file or try another question.</p>
+                  </div>
+                  {chatError && (
+                    <div className="rounded-2xl bg-white border border-rose-200 px-3 py-2 text-rose-700 text-xs whitespace-pre-wrap">
+                      {chatError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

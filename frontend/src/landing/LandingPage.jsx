@@ -1,8 +1,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 import Hero from './Hero';
-import { TrustBar, HowItWorks, Comparison, FeaturesGrid, IntegrationsGrid } from './Sections';
-import Analytics from './Analytics';
+import { HowItWorks, Comparison, FeaturesGrid, IntegrationsGrid } from './Sections';
 import { PersonaTabs, SlackShowcase } from './Interactive';
 import { Testimonials, FAQ, FinalCTA, Footer } from './Social';
 
@@ -15,16 +14,10 @@ export default function LandingPage() {
       {/* 3. Hero Section */}
       <Hero />
 
-      {/* 4. Trust / Logo Cloud */}
-      <TrustBar />
-
-      {/* 5. How It Works */}
+      {/* 4. How It Works */}
       <HowItWorks />
 
-      {/* 6. Interactive Analytics / Graphs */}
-      <Analytics />
-
-      {/* 7. Before vs After Comparison */}
+      {/* 5. Before vs After Comparison */}
       <Comparison />
 
       {/* 8. Why This is Different — Features Grid */}
@@ -38,9 +31,6 @@ export default function LandingPage() {
 
       {/* 11. Integrations / Data Sources */}
       <IntegrationsGrid />
-
-      {/* 12. Testimonials */}
-      <Testimonials />
 
       {/* 13. FAQ Accordion */}
       <FAQ />

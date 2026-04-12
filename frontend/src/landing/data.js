@@ -59,7 +59,7 @@ export const features = [
   },
   {
     title: 'TAG Planning',
-    desc: 'Decomposes complex questions into structured plans: Table → Aggregate → Generate SQL.',
+    desc: 'Uses TASG-style planning to decompose questions into Table → Aggregate → Generate SQL workflows.',
     icon: 'Layers',
     color: 'violet',
   },

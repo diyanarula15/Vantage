@@ -2,13 +2,26 @@ import json
 import os
 import re
 import sqlite3
+from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import chromadb
 import pandas as pd
 import yaml
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect as sqlalchemy_inspect, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
+
+SUPPORTED_WAREHOUSES = {
+    "postgresql",
+    "mysql",
+    "snowflake",
+    "redshift",
+    "bigquery",
+    "databricks",
+}
 
 from vantage_llm import LLMClient
 
@@ -50,6 +63,137 @@ class VantageIngestor:
         with sqlite3.connect(self.db_path) as connection:
             df.to_sql(table_name, connection, if_exists="replace", index=False)
 
+    def _read_database(self, connection_string: str, table_name: Optional[str] = None) -> tuple[dict[str, pd.DataFrame], list[str]]:
+        try:
+            url = make_url(connection_string)
+        except Exception as exc:
+            raise ValueError(f"Invalid database connection string: {exc}") from exc
+
+        dialect = url.drivername.split("+")[0]
+        if dialect not in SUPPORTED_WAREHOUSES:
+            raise ValueError(
+                f"Unsupported warehouse dialect '{dialect}'. Supported: {', '.join(sorted(SUPPORTED_WAREHOUSES))}"
+            )
+
+        try:
+            engine = create_engine(connection_string, future=True)
+        except ImportError as exc:
+            raise ImportError(
+                "SQLAlchemy driver not installed. Install SQLAlchemy and the appropriate warehouse driver for your source."
+            ) from exc
+
+        def quote_identifier(name: str) -> str:
+            preparer = connection.dialect.identifier_preparer
+            if '.' in name:
+                return '.'.join(preparer.quote(part) for part in name.split('.'))
+            return preparer.quote(name)
+
+        tables_data: dict[str, pd.DataFrame] = {}
+        with engine.connect() as connection:
+            inspector = sqlalchemy_inspect(connection)
+            if table_name:
+                raw_tables = [table_name]
+            else:
+                raw_tables = inspector.get_table_names()
+            if not raw_tables:
+                raise ValueError("No tables were found in the target database.")
+
+            for raw_table in raw_tables:
+                quoted_name = quote_identifier(raw_table)
+                query = text(f"SELECT * FROM {quoted_name}")
+                tables_data[raw_table] = pd.read_sql(query, connection)
+
+        return tables_data, raw_tables
+
+    def ingest_database(self, connection_string: str, table_name: Optional[str] = None) -> dict[str, Any]:
+        tables_data, raw_table_names = self._read_database(connection_string, table_name)
+
+        safe_names = {raw: _safe_table_name(raw) for raw in raw_table_names}
+        all_schemas = []
+        combined_entities = []
+        combined_relationships = []
+        combined_metrics: list[dict[str, Any]] = []
+        total_rows = 0
+        total_columns = 0
+        min_date, max_date = None, None
+
+        for raw_table, df in tables_data.items():
+            safe_name = safe_names[raw_table]
+            self._write_sqlite(df, safe_name)
+            schema = self._schema_snapshot(safe_name)
+            all_schemas.append(schema)
+
+            context_graph, metric_dictionary = self._generate_metadata_and_metrics(safe_name, df, schema)
+            combined_entities.extend(context_graph.get("entities", []))
+            combined_relationships.extend(context_graph.get("relationships", []))
+
+            for metric in metric_dictionary.get("metrics", []):
+                metric["source_table"] = safe_name
+                combined_metrics.append(metric)
+
+            total_rows += int(df.shape[0])
+            total_columns += int(df.shape[1])
+
+            for col in df.columns:
+                if str(df[col].dtype) in ['object', 'string'] or 'datetime' in str(df[col].dtype):
+                    try:
+                        if not pd.to_numeric(df[col], errors='coerce').notna().sum() > len(df) * 0.5:
+                            parsed = pd.to_datetime(df[col], errors='coerce')
+                            if not parsed.isna().all():
+                                col_min = parsed.min()
+                                col_max = parsed.max()
+                                if min_date is None or col_min < min_date:
+                                    min_date = col_min
+                                if max_date is None or col_max > max_date:
+                                    max_date = col_max
+                    except Exception:
+                        pass
+
+        date_bounds = {
+            "min_date": min_date.strftime('%Y-%m-%d') if min_date else None,
+            "max_date": max_date.strftime('%Y-%m-%d') if max_date else None,
+        }
+
+        dialect = make_url(connection_string).drivername.split("+")[0]
+        schema_payload = all_schemas[0] if len(all_schemas) == 1 else {raw_table: schema for raw_table, schema in zip(raw_table_names, all_schemas)}
+        context_graph = {
+            "dataset_name": "warehouse_import",
+            "entities": combined_entities,
+            "relationships": combined_relationships,
+        }
+        metric_dictionary = {"metrics": combined_metrics}
+
+        metadata = {
+            "source_type": dialect,
+            "source_tables": raw_table_names,
+            "primary_table": safe_names[raw_table_names[0]],
+            "row_count": total_rows,
+            "column_count": total_columns,
+            "schema": schema_payload,
+            "context_graph": context_graph,
+            "date_bounds": date_bounds,
+            "instant_insights": self._generate_instant_insights(safe_names[raw_table_names[0]], tables_data[raw_table_names[0]]),
+        }
+
+        with open(self.metadata_path, "w", encoding="utf-8") as metadata_file:
+            json.dump(metadata, metadata_file, indent=2)
+
+        with open(self.metrics_path, "w", encoding="utf-8") as metrics_file:
+            yaml.safe_dump(metric_dictionary, metrics_file, sort_keys=False)
+
+        self._index_semantics(safe_names[raw_table_names[0]], context_graph, metric_dictionary)
+
+        return {
+            "primary_table": safe_names[raw_table_names[0]],
+            "source_tables": raw_table_names,
+            "db_path": self.db_path,
+            "metadata_path": self.metadata_path,
+            "metrics_path": self.metrics_path,
+            "rows": total_rows,
+            "columns": total_columns,
+            "instant_insights": metadata["instant_insights"],
+        }
+
     def _schema_snapshot(self, table_name: str) -> dict[str, Any]:
         with sqlite3.connect(self.db_path) as connection:
             cursor = connection.cursor()
@@ -68,6 +212,12 @@ class VantageIngestor:
                 ],
             }
 
+    @staticmethod
+    def _json_default(value: Any):
+        if isinstance(value, (datetime, date, time)):
+            return value.isoformat()
+        return str(value)
+
     def _generate_metadata_and_metrics(
         self,
         table_name: str,
@@ -84,7 +234,7 @@ Given a single uploaded table, infer a robust context graph and metric dictionar
 Table name: {table_name}
 Schema snapshot: {json.dumps(schema, indent=2)}
 Pandas dtypes: {json.dumps(dtypes, indent=2)}
-Sample rows: {json.dumps(sample_rows, indent=2)}
+Sample rows: {json.dumps(sample_rows, indent=2, default=self._json_default)}
 
 Return JSON only with shape:
 {{
@@ -177,9 +327,10 @@ Rules:
             
         # 3. Embed Metric mathematical logic
         for metric in metric_dictionary.get("metrics", []):
+            metric_table = metric.get("source_table", table_name)
             met_doc = f"Metric Ontology '{metric.get('name')}': {metric.get('description')}. Formula constraint: {metric.get('sql_formula')}."
             column_payload.append({
-                "table": table_name,
+                "table": metric_table,
                 "column": f"METRIC_{metric.get('name')}",
                 "semantic_type": "metric_formula",
                 "business_meaning": met_doc,
@@ -227,7 +378,7 @@ Rules:
             sample_rows = df.head(10).fillna("").to_dict(orient="records")
             prompt = f"""
 We just ingested a business dataset named '{table_name}'.
-Sample rows: {json.dumps(sample_rows, indent=2)}
+Sample rows: {json.dumps(sample_rows, indent=2, default=self._json_default)}
 
 Please provide a highly synthesized summary of this data.
 Return JSON ONLY exactly like this:

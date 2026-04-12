@@ -14,7 +14,7 @@ export function PersonaTabs() {
   const persona = personas[active];
 
   return (
-    <section id="personas" ref={ref} className="py-28 px-6 bg-slate-50/50 relative overflow-hidden">
+    <section id="personas" ref={ref} className="py-24 px-6 bg-slate-50/50 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-violet-50/30 rounded-full blur-[120px] -z-10" />
 
       <div className="max-w-7xl mx-auto">
@@ -22,7 +22,7 @@ export function PersonaTabs() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-violet-50 text-violet-600 text-sm font-medium mb-4">
             Use Cases
@@ -151,7 +151,7 @@ export function SlackShowcase() {
   ];
 
   return (
-    <section ref={ref} className="py-28 px-6 bg-white relative overflow-hidden">
+    <section ref={ref} className="py-24 px-6 bg-white relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-gradient-to-b from-indigo-50/40 to-transparent rounded-[50%] blur-[80px] -z-10" />
 
       <div className="max-w-4xl mx-auto">
@@ -159,7 +159,7 @@ export function SlackShowcase() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-600 text-sm font-medium mb-4">
             <Sparkles size={14} /> AI in Action

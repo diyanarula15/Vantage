@@ -53,7 +53,7 @@ export function HowItWorks() {
   const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="how-it-works" ref={ref} className="py-28 px-6 bg-slate-50/50 relative overflow-hidden">
+    <section id="how-it-works" ref={ref} className="py-24 px-6 bg-slate-50/50 relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-50/50 rounded-full blur-[120px] -z-10" />
 
@@ -213,7 +213,7 @@ export function FeaturesGrid() {
             Enterprise intelligence, out of the box
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Every component is engineered for accuracy, privacy, and speed.
+            From upload and warehouse ingestion to explainable SQL and secure narrative output, Vantage puts your raw sources to work.
           </p>
         </motion.div>
 
@@ -262,8 +262,20 @@ export function IntegrationsGrid() {
     messaging: 'from-violet-500/10 to-violet-500/5 border-violet-200/50',
   };
 
+  const supportedIntegrations = new Set([
+    'Snowflake',
+    'BigQuery',
+    'Redshift',
+    'PostgreSQL',
+    'MySQL',
+    'Databricks',
+    'Slack',
+  ]);
+
+  const displayedIntegrations = integrations.filter((integration) => supportedIntegrations.has(integration.name));
+
   return (
-    <section id="integrations" ref={ref} className="py-28 px-6 bg-white relative overflow-hidden">
+    <section id="integrations" ref={ref} className="py-24 px-6 bg-white relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-50/30 rounded-full blur-[120px] -z-10" />
 
       <div className="max-w-5xl mx-auto">
@@ -271,7 +283,7 @@ export function IntegrationsGrid() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-50 text-cyan-600 text-sm font-medium mb-4">
             Integrations
@@ -280,14 +292,14 @@ export function IntegrationsGrid() {
             Connects to your entire stack
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Warehouse, CRM, BI tool — Vantage builds a semantic layer on whatever data you have.
+            Upload CSV/Excel or connect a SQL warehouse, and Vantage builds a unified semantic layer for fast, conversational analytics.
           </p>
         </motion.div>
 
         {/* Center hub */}
         <div className="relative">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {integrations.map((int, i) => (
+            {displayedIntegrations.map((int, i) => (
               <motion.div
                 key={int.name}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -305,6 +317,233 @@ export function IntegrationsGrid() {
             ))}
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+export function DatabaseConnector({ compact = false }) {
+  const [sourceType, setSourceType] = useState('postgresql');
+  const [connectionString, setConnectionString] = useState('');
+  const [tableName, setTableName] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [message, setMessage] = useState('');
+  const [sourceTables, setSourceTables] = useState([]);
+
+  const submitConnection = async (event) => {
+    event.preventDefault();
+    setStatus('loading');
+    setMessage('');
+    setSourceTables([]);
+
+    try {
+      const response = await fetch('/api/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_type: sourceType,
+          connection_string: connectionString,
+          table_name: tableName || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Unable to connect to source');
+      }
+
+      setSourceTables(data.source_tables || []);
+      const primaryTable = data.primary_table || data.source_table || (data.source_tables && data.source_tables[0]) || 'table';
+      const tableCount = (data.source_tables || []).length;
+      setStatus('success');
+      setMessage(`Connected! Ingested ${primaryTable} with ${data.rows} rows${tableCount > 1 ? ` across ${tableCount} table${tableCount === 1 ? '' : 's'}` : ''}.`);
+    } catch (err) {
+      setStatus('error');
+      setMessage(err.message || 'Connection failed.');
+    }
+  };
+
+  const wrapperClass = compact
+    ? 'bg-white p-4 rounded-3xl border border-slate-200 shadow-sm'
+    : 'grid gap-6 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm';
+  const title = compact ? 'Connect a warehouse' : 'Connect a warehouse in seconds';
+  const description = compact
+    ? 'Paste a SQLAlchemy URI and ingest a table directly from the hero section.'
+    : 'Enter a SQLAlchemy connection string, choose your source, and ingest one table for instant analytics.';
+  const helpText = compact
+    ? 'Use the selected driver format and leave table blank to ingest all tables.'
+    : null;
+
+  return compact ? (
+    <div className="rounded-3xl bg-slate-50/70 border border-slate-200/70 p-4 shadow-sm">
+      <div className="mb-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-cyan-600 mb-2">Warehouse connector</p>
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <p className="text-sm text-slate-600 mt-2">{description}</p>
+      </div>
+
+      <form onSubmit={submitConnection} className={wrapperClass}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm text-slate-700">
+            Source type
+            <select
+              value={sourceType}
+              onChange={(e) => setSourceType(e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="snowflake">Snowflake</option>
+              <option value="redshift">Redshift</option>
+              <option value="bigquery">BigQuery</option>
+              <option value="databricks">Databricks</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm text-slate-700">
+            Connection string
+            <input
+              type="text"
+              value={connectionString}
+              onChange={(e) => setConnectionString(e.target.value)}
+              placeholder="postgresql+psycopg2://user:pass@host:5432/db"
+              className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              required
+            />
+          </label>
+        </div>
+
+        <label className="space-y-1 text-sm text-slate-700">
+          Table name (optional)
+          <input
+            type="text"
+            value={tableName}
+            onChange={(e) => setTableName(e.target.value)}
+            placeholder="sales"
+            className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          />
+        </label>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="submit"
+            disabled={status === 'loading'}
+            className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-cyan-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {status === 'loading' ? 'Connecting…' : 'Connect'}
+          </button>
+          <p className="text-xs text-slate-500 leading-relaxed">{helpText || 'For Snowflake, include ?warehouse=WH&role=ROLE in the connection string.'}</p>
+        </div>
+
+        {message && (
+          <div
+            className={`rounded-2xl border px-3 py-2 text-sm ${status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
+          >
+            <div>{message}</div>
+            {status === 'success' && sourceTables.length > 0 && (
+              <div className="mt-2 text-xs text-slate-700">
+                <div className="font-semibold">Imported tables:</div>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  {sourceTables.map((table) => (
+                    <li key={table}>{table}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </form>
+    </div>
+  ) : (
+    <section className="py-24 px-6 bg-slate-50/70 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-transparent to-violet-50 pointer-events-none" />
+      <div className="relative max-w-5xl mx-auto">
+        <div className="text-center mb-12">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-600 mb-3">Warehouse Connector</p>
+          <h2 className="text-3xl md:text-5xl font-bold text-slate-900">Connect a warehouse in seconds</h2>
+          <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+            Enter a SQLAlchemy connection string, choose your source, and ingest one table for instant analytics.
+          </p>
+        </div>
+
+        <form onSubmit={submitConnection} className={wrapperClass}>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-2 text-sm text-slate-700">
+              Source type
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+                <option value="snowflake">Snowflake</option>
+                <option value="redshift">Redshift</option>
+                <option value="bigquery">BigQuery</option>
+                <option value="databricks">Databricks</option>
+              </select>
+            </label>
+            <label className="space-y-2 text-sm text-slate-700 md:col-span-2">
+              Connection string
+              <input
+                type="text"
+                value={connectionString}
+                onChange={(e) => setConnectionString(e.target.value)}
+                placeholder="e.g. postgresql+psycopg2://user:pass@host:5432/db"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                required
+              />
+            </label>
+          </div>
+
+          <label className="space-y-2 text-sm text-slate-700">
+            Table name (optional)
+            <input
+              type="text"
+              value={tableName}
+              onChange={(e) => setTableName(e.target.value)}
+              placeholder="Example: sales"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 text-white px-6 py-3 text-sm font-semibold hover:bg-cyan-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {status === 'loading' ? 'Connecting…' : 'Connect Warehouse'}
+            </button>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900 mb-2">Quick tips</p>
+              <ul className="space-y-2">
+                <li>Use the driver format for the selected source.</li>
+                <li>For Snowflake, include <code className="rounded bg-slate-100 px-1 py-0.5">?warehouse=WH&role=ROLE</code>.</li>
+                <li>Leave table blank to ingest every table in the database.</li>
+              </ul>
+            </div>
+          </div>
+
+          {message && (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
+            >
+              <div>{message}</div>
+              {status === 'success' && sourceTables.length > 0 && (
+                <div className="mt-3 text-xs text-slate-700">
+                  <div className="font-semibold">Imported tables:</div>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    {sourceTables.map((table) => (
+                      <li key={table}>{table}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </form>
       </div>
     </section>
   );

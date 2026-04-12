@@ -90,7 +90,7 @@ export default function Analytics() {
   const data = analyticsDataSets[activeTab];
 
   return (
-    <section id="analytics" ref={ref} className="py-28 px-6 bg-white relative overflow-hidden">
+    <section id="analytics" ref={ref} className="py-24 px-6 bg-white relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/30 rounded-full blur-[120px] -z-10" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-50/20 rounded-full blur-[100px] -z-10" />
 
@@ -99,7 +99,7 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-600 text-sm font-medium mb-4">
             Live Analytics

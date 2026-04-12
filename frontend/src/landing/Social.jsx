@@ -21,7 +21,7 @@ export function Testimonials() {
   ];
 
   return (
-    <section ref={ref} className="py-28 px-6 bg-slate-50/50 relative overflow-hidden">
+    <section ref={ref} className="py-24 px-6 bg-slate-50/50 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-violet-50/30 rounded-full blur-[100px] -z-10" />
 
       <div className="max-w-7xl mx-auto">
@@ -29,7 +29,7 @@ export function Testimonials() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 text-amber-600 text-sm font-medium mb-4">
             <Star size={14} /> Testimonials
@@ -88,13 +88,13 @@ export function FAQ() {
   const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="faq" ref={ref} className="py-28 px-6 bg-white">
+    <section id="faq" ref={ref} className="py-24 px-6 bg-white">
       <div className="max-w-3xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
             Frequently asked questions
@@ -162,7 +162,7 @@ export function FinalCTA() {
   const inView = useInView(ref, { once: true });
 
   return (
-    <section id="cta" ref={ref} className="py-28 px-6 relative overflow-hidden">
+    <section id="cta" ref={ref} className="py-24 px-6 relative overflow-hidden">
       {/* Dramatic gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 -z-20" />
       <div className="absolute inset-0 -z-10">
@@ -202,7 +202,7 @@ export function FinalCTA() {
             whileTap={{ scale: 0.97 }}
             className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-semibold shadow-xl shadow-white/10 flex items-center gap-2 hover:bg-slate-50 transition-colors"
           >
-            Start Free Trial <ArrowRight size={18} />
+            Start Exploring Now! <ArrowRight size={18} />
           </motion.a>
           <motion.a
             href="#"
@@ -220,81 +220,15 @@ export function FinalCTA() {
 
 /* ── Footer ── */
 export function Footer() {
-  const columns = [
-    {
-      title: 'Product',
-      links: ['Features', 'Integrations', 'Pricing', 'Changelog', 'Docs'],
-    },
-    {
-      title: 'Company',
-      links: ['About', 'Blog', 'Careers', 'Contact', 'Press'],
-    },
-    {
-      title: 'Resources',
-      links: ['Documentation', 'API Reference', 'Community', 'Support', 'Status'],
-    },
-    {
-      title: 'Legal',
-      links: ['Privacy', 'Terms', 'Security', 'GDPR', 'SOC 2'],
-    },
-  ];
-
   return (
-    <footer className="bg-slate-900 text-slate-400 pt-20 pb-10 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
-          {/* Brand column */}
-          <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <Zap size={16} className="text-white" fill="currentColor" />
-              </div>
-              <span className="text-lg font-bold text-white">Vantage</span>
-            </div>
-            <p className="text-sm leading-relaxed text-slate-500 mb-6">
-              The AI-native data analyst that lives in Slack. Ask questions, get verified answers.
-            </p>
-            <div className="flex gap-3">
-              {['Twitter', 'LinkedIn', 'GitHub'].map((s) => (
-                <a
-                  key={s}
-                  href="#"
-                  className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-700 transition-colors text-xs font-bold"
-                >
-                  {s[0]}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Link columns */}
-          {columns.map((col) => (
-            <div key={col.title}>
-              <h4 className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">
-                {col.title}
-              </h4>
-              <ul className="space-y-3">
-                {col.links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
+    <footer className="bg-slate-950 text-slate-300">
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-slate-600">
-            © 2026 Vantage AI. All rights reserved.
+          <p className="text-xs text-slate-500">
+            {/* © 2026 Vantage AI. All rights reserved. */}
           </p>
-          <p className="text-xs text-slate-600">
-            Built for modern data-driven teams.
+          <p className="text-xs text-slate-400">
+            {/* Built for modern data-driven teams. */}
           </p>
         </div>
       </div>

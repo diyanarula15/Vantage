@@ -1,5 +1,8 @@
+from typing import Optional
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import shutil
 import os
@@ -27,9 +30,14 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    sql: str | None = None
-    data_quality: dict | None = None
-    rows: list | None = None
+    sql: Optional[str] = None
+    data_quality: Optional[dict] = None
+    rows: Optional[list] = None
+
+class DatabaseIngestRequest(BaseModel):
+    source_type: str
+    connection_string: str
+    table_name: Optional[str] = None
 
 @app.post("/api/upload")
 async def upload_dataset(file: UploadFile = File(...)):
@@ -47,6 +55,33 @@ async def upload_dataset(file: UploadFile = File(...)):
         import traceback
         traceback_str = traceback.format_exc()
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}\nTraceback: {traceback_str}")
+
+@app.post("/api/connect")
+async def connect_database(req: DatabaseIngestRequest):
+    source_type = req.source_type.lower()
+    supported = {"postgresql", "mysql", "snowflake", "redshift", "bigquery", "databricks"}
+    if source_type not in supported:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported source_type '{req.source_type}'. Supported: {', '.join(sorted(supported))}"
+        )
+
+    try:
+        ingestor = VantageIngestor()
+        result = ingestor.ingest_database(req.connection_string, req.table_name)
+        return {
+            "status": "success",
+            "source_type": source_type,
+            "source_tables": result.get("source_tables"),
+            "primary_table": result.get("primary_table"),
+            "source_table": result.get("primary_table"),
+            "rows": result.get("rows"),
+            "columns": result.get("columns"),
+            "metadata_path": result.get("metadata_path"),
+            "metrics_path": result.get("metrics_path"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/metadata")
 def get_metadata():
@@ -83,6 +118,16 @@ def chat_with_data(req: ChatRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Serve React Frontend Build
+frontend_dist = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+if os.path.exists(frontend_dist):
+    @app.get("/{catchall:path}")
+    def serve_react_app(catchall: str):
+        path_to_file = os.path.join(frontend_dist, catchall)
+        if os.path.isfile(path_to_file):
+            return FileResponse(path_to_file)
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
