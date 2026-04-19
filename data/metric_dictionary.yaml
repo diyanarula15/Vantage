@@ -8,7 +8,7 @@ metrics:
   sql_formula: SUM(Credit)
   grain_hint: monthly
 - name: Net Cash Flow
-  description: Net cash flow (Total Credit - Total Debit) over a period.
+  description: Net cash flow (Credit - Debit) over a period.
   sql_formula: SUM(Credit) - SUM(Debit)
   grain_hint: monthly
 - name: Average Monthly Balance
@@ -16,16 +16,16 @@ metrics:
   sql_formula: AVG(Balance)
   grain_hint: monthly
 - name: Total Spending by Category
-  description: Total debit amount grouped by transaction category.
+  description: Total spending grouped by transaction category.
   sql_formula: SUM(Debit) GROUP BY Category
   grain_hint: category
 - name: Churn Rate
-  description: Not applicable directly from this dataset, but could be inferred if
-    additional data is available.
+  description: Rate of account inactivity or closure (not directly calculable from
+    this dataset, requires additional context).
   sql_formula: null
   grain_hint: unknown
-- name: Return on Investment (ROI)
-  description: Not applicable directly from this dataset, but could be inferred if
-    investment data is available.
+- name: ROI on Income
+  description: Return on Investment based on income and expenses (not directly calculable
+    from this dataset, requires additional context).
   sql_formula: null
   grain_hint: unknown

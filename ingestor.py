@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Optional
@@ -357,20 +358,17 @@ Rules:
         embeddings = self.llm.embed_texts(docs)
 
         existing_ids = set(collection.get(include=[]).get("ids", []))
-        new_docs, new_meta, new_ids, new_embeddings = [], [], [], []
-        for document, metadata, identifier, embedding in zip(docs, metadatas, ids, embeddings):
-            if identifier in existing_ids:
-                collection.delete(ids=[identifier])
-            new_docs.append(document)
-            new_meta.append(metadata)
-            new_ids.append(identifier)
-            new_embeddings.append(embedding)
+
+        # Batch-delete stale IDs in one call instead of one-by-one (much faster)
+        stale_ids = [identifier for identifier in ids if identifier in existing_ids]
+        if stale_ids:
+            collection.delete(ids=stale_ids)
 
         collection.add(
-            ids=new_ids,
-            documents=new_docs,
-            metadatas=new_meta,
-            embeddings=new_embeddings,
+            ids=ids,
+            documents=docs,
+            metadatas=metadatas,
+            embeddings=embeddings,
         )
 
     def _generate_instant_insights(self, table_name: str, df: pd.DataFrame) -> dict[str, Any]:
@@ -410,26 +408,34 @@ Return JSON ONLY exactly like this:
 
         self._write_sqlite(df, table_name)
         schema = self._schema_snapshot(table_name)
-        context_graph, metric_dictionary = self._generate_metadata_and_metrics(table_name, df, schema)
 
+        # --- PARALLELISE the two heavy LLM calls ---
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            future_meta = pool.submit(self._generate_metadata_and_metrics, table_name, df, schema)
+            future_insights = pool.submit(self._generate_instant_insights, table_name, df)
+            context_graph, metric_dictionary = future_meta.result()
+            instant_insights = future_insights.result()
+
+        # Compute date bounds (CPU-only, fast)
         min_date, max_date = None, None
         for col in df.columns:
             if str(df[col].dtype) in ['object', 'string'] or 'datetime' in str(df[col].dtype):
                 try:
-                    # Prevent numbers from becoming 1970 UNIX times randomly
-                    if not pd.to_numeric(df[col], errors='coerce').notna().sum() > len(df)*0.5:
+                    if not pd.to_numeric(df[col], errors='coerce').notna().sum() > len(df) * 0.5:
                         parsed = pd.to_datetime(df[col], errors='coerce')
                         if not parsed.isna().all():
                             col_min = parsed.min()
                             col_max = parsed.max()
-                            if min_date is None or col_min < min_date: min_date = col_min
-                            if max_date is None or col_max > max_date: max_date = col_max
+                            if min_date is None or col_min < min_date:
+                                min_date = col_min
+                            if max_date is None or col_max > max_date:
+                                max_date = col_max
                 except Exception:
                     pass
-                    
+
         date_bounds = {
             "min_date": min_date.strftime('%Y-%m-%d') if min_date else None,
-            "max_date": max_date.strftime('%Y-%m-%d') if max_date else None
+            "max_date": max_date.strftime('%Y-%m-%d') if max_date else None,
         }
 
         metadata = {
@@ -440,7 +446,7 @@ Return JSON ONLY exactly like this:
             "schema": schema,
             "context_graph": context_graph,
             "date_bounds": date_bounds,
-            "instant_insights": self._generate_instant_insights(table_name, df)
+            "instant_insights": instant_insights,
         }
 
         with open(self.metadata_path, "w", encoding="utf-8") as metadata_file:
@@ -458,7 +464,7 @@ Return JSON ONLY exactly like this:
             "metrics_path": self.metrics_path,
             "rows": int(df.shape[0]),
             "columns": int(df.shape[1]),
-            "instant_insights": metadata["instant_insights"]
+            "instant_insights": instant_insights,
         }
 
 

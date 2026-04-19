@@ -51,11 +51,28 @@ Rows:
         return rows
 
     def redact_pii(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        regex_cleaned = self._regex_redact_records(rows)
+        # Just use regex to save massive latency from LLM calls!
+        return self._regex_redact_records(rows)
+
+    def suggest_follow_ups(self, question: str, answer: str) -> list[str]:
+        prompt = f"""
+You are an analytical assistant.
+Given the user's previous question and your textual answer, suggest 3 highly relevant and insightful follow-up questions the user could ask next to dive deeper into the data or find root causes. Keep them concise.
+Return JSON only as: {{"questions": ["question 1", "question 2", "question 3"]}}
+
+Previous Question: {question}
+Answer Given: {answer}
+"""
         try:
-            return self._llm_entity_redact(regex_cleaned)
-        except Exception:
-            return regex_cleaned
+            payload = self.llm.json(prompt)
+            questions = payload.get("questions", [])
+            if isinstance(questions, list):
+                return questions[:3]
+            return []
+        except Exception as e:
+            import logging
+            logging.getLogger("vantage_narrator").warning(f"Failed to generate follow-ups: {e}")
+            return []
 
     def summarize(self, question: str, rows: list[dict[str, Any]]) -> str:
         preview = rows[:20]
@@ -78,8 +95,64 @@ RULES:
 Question: {question}
 Result preview: {json.dumps(preview, indent=2)}
 """
-        text = self.llm.text(prompt, use_web=True, search_query=question)
+        text = self.llm.text(prompt, use_web=False, search_query=question)
         normalized = " ".join(text.strip().replace("\n", " ").split())
         if normalized.count(".") >= 2:
             return normalized
         return f"{normalized} Source reflects the latest uploaded dataset."
+
+
+
+    
+    def summarize_simulation(self, query: str, instruction: str, simulated_rows: list) -> str:
+        prompt = f'''
+You are a highly advanced Strategic Financial Advisor and Data Scientist.
+The user asked an original question: "{query}"
+Then the user requested a What-If scenario: "{instruction}"
+Here is the resulting simulated data: {simulated_rows[:15]}
+
+Your task: Provide extremely actionable, advanced, and stunningly formulated business insights. 
+- Do not just read the numbers. 
+- Give concrete, strategic reallocation advice (e.g., "Since expenses decreased by 10%, the resulting $500k surplus should be aggressively reinvested into R&D or high-yield marketing channels to compound growth.").
+- Use a visionary and authoritative tone. Make it sound like a McKinsey partner is advising the CEO.
+- Keep it to 3-4 impactful sentences. Do NOT use markdown.
+'''
+        text = self.llm.text(prompt)
+        return " ".join(text.strip().replace("\n", " ").split())
+
+    def narrate_and_suggest(self, question: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+        preview = rows[:20]
+        prompt = f'''
+You are a business data narrator and analytical assistant.
+Return ONLY JSON with a "summary" and "follow_up_questions".
+
+Task 1 (summary): Write 2-3 concise sentences interpreting the Result preview without technical jargon. 
+- If empty, say "No records found matching those parameters."
+- If relevant, leverage your knowledge of external trends context. Do NOT use markdown/bullets.
+
+Task 2 (follow_up_questions): Suggest 3 highly relevant insightful follow-up questions to dive deeper. Keep them concise.
+
+Question: {question}
+Result preview: {json.dumps(preview, indent=2)}
+
+Format (JSON only):
+{{
+  "summary": "...",
+  "follow_up_questions": ["q1", "q2", "q3"]
+}}
+'''
+        try:
+            payload = self.llm.json(prompt)
+            summary = payload.get("summary", "Could not generate summary.")
+            normalized = " ".join(summary.strip().replace("\n", " ").split())
+            if normalized.count(".") < 2:
+                normalized += " Source reflects the uploaded dataset."
+                
+            return {
+                "summary": normalized,
+                "follow_up_questions": payload.get("follow_up_questions", [])[:3]
+            }
+        except Exception as e:
+            import logging
+            logging.getLogger("vantage_narrator").warning(f"Failed synthesis: {e}")
+            return {"summary": "Insight generation failed.", "follow_up_questions": []}

@@ -10,12 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.2",
     "axios": "^1.6.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.290.0",
+    "plotly.js": "^3.5.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-intersection-observer": "^10.0.3",
+    "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^7.14.1",
     "recharts": "^2.15.4"
   },
   "devDependencies": {

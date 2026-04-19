@@ -1,7 +1,10 @@
+import concurrent.futures
 import datetime
 import hashlib
 import json
+import logging
 import os
+import re
 import sqlite3
 from typing import Any, Optional
 
@@ -11,9 +14,10 @@ from dotenv import load_dotenv
 
 from vantage_llm import LLMClient
 
+logger = logging.getLogger("vantage_brain")
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
-
 
 class VantageBrain:
     def __init__(self) -> None:
@@ -60,7 +64,8 @@ class VantageBrain:
             if distance <= threshold:
                 metadatas = result["metadatas"][0][0]
                 return metadatas.get("sql"), distance
-        except Exception:
+        except Exception as e:
+            logger.error(f"Semantic Cache check failed: {e}")
             return None, 0.0
         return None, 0.0
 
@@ -75,91 +80,44 @@ class VantageBrain:
             metadatas=[{"sql": sql}]
         )
 
-    def _route_intent(self, query: str) -> str:
-        prompt = f"""
-You are an intent router for an analytics system.
-Classify the query into one of: FACTUAL, DIAGNOSTIC, COMPARISON, SUMMARY.
-DIAGNOSTIC = asking 'why', seeking root causes, variances, or drops.
-COMPARISON = comparing two periods, segments, or entities vs each other.
-SUMMARY = high level breakdown or overview.
-FACTUAL = list, sum, or generic questions.
-
-Query: {query}
-Return JSON only: {{"intent": "FACTUAL|DIAGNOSTIC|COMPARISON|SUMMARY"}}
-"""
-        try:
-            return self.llm.json(prompt).get("intent", "FACTUAL").strip().upper()
-        except:
-            return "FACTUAL"
-
-    def _build_plan(
+    def _synthesize_sql_execution(
         self,
         query: str,
-        schema: dict[str, Any],
-        retrieval: dict[str, Any],
-        date_bounds: dict[str, Any],
-        intent: str
-    ) -> list[str]:
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        prompt = f"""
-You are the TAG Planner for text-to-SQL.
-Create a short execution plan for the user question.
-
-Question: {query}
-Intent Identified: {intent}
-Temporal Rules:
-- Current Reality Date: {current_date}
-- Dataset Boundaries: {json.dumps(date_bounds)} 
-Use these to map phrases like "last month" correctly.
-
-Schema: {json.dumps(schema, indent=2)}
-GraphRAG Semantic Ontology: {json.dumps(retrieval, indent=2)}
-
-Return JSON with:
-{{"plan_steps": ["step 1", "step 2", "step 3"]}}
-"""
-        payload = self.llm.json(prompt)
-        plan_steps = payload.get("plan_steps", [])
-        return [str(item) for item in plan_steps]
-
-    def _generate_sql(
-        self,
-        query: str,
-        plan_steps: list[str],
         schema: dict[str, Any],
         metric_dictionary: dict[str, Any],
         retrieval: dict[str, Any],
-        date_bounds: dict[str, Any],
-        intent: str
-    ) -> str:
+        date_bounds: dict[str, Any]
+    ) -> dict[str, Any]:
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        intent_rules = ""
-        if intent in ["DIAGNOSTIC", "COMPARISON"]:
-            intent_rules = "- intent is analytics! MUST USE GROUP BY to break down the metric by relevant dimensions (e.g., region, category) to show variance or comparison. Calculate deltas if possible."
-
-        prompt = f"""
-You are a SQL synthesizer for SQLite.
-Generate a single SQLite query that answers the question.
+        prompt = f'''
+You are a master SQLite synthesizer and analytics planner.
+Analyze the user question and generate an execution plan and the final SQLite query.
 
 Question: {query}
-Plan steps: {json.dumps(plan_steps, indent=2)}
 Temporal Rules: Real date is {current_date}, bounds {json.dumps(date_bounds)}
 Schema: {json.dumps(schema, indent=2)}
+GraphRAG Semantics: {json.dumps(retrieval, indent=2)}
 Metric dictionary: {json.dumps(metric_dictionary, indent=2)}
 
 Constraints:
-- Use metric dictionary formulas consistently.
-- Only use columns from schema.
-- Prefer clear aliases.
-- CRITICAL SQLite RULE: NEVER use single quotes for column names! Use double quotes (e.g. "Column Name") for columns with spaces. Single quotes are ONLY for strings.
-{intent_rules}
-- Return JSON only as: {{"sql": "SELECT ..."}}
-"""
+- Determine intent: FACTUAL, DIAGNOSTIC, COMPARISON, or SUMMARY.
+- If DIAGNOSTIC/COMPARISON, USE GROUP BY to break down metrics.
+- MUST use column names exactly as they appear in schema.
+- NEVER use single quotes for column names! Use double quotes (e.g. "Column Name").
+
+Return JSON exactly as:
+{{
+  "intent": "FACTUAL",
+  "plan_steps": ["step 1", "step 2"],
+  "sql": "SELECT ..."
+}}
+'''
         payload = self.llm.json(prompt)
-        sql = payload.get("sql", "").strip()
-        if not sql:
-            raise ValueError("Model did not return SQL.")
-        return sql
+        return {
+            "intent": payload.get("intent", "FACTUAL").strip().upper(),
+            "plan_steps": [str(item) for item in payload.get("plan_steps", [])],
+            "sql": payload.get("sql", "").strip()
+        }
 
     def _normalize_sql_value(self, value: Any) -> Any:
         if isinstance(value, (datetime.date, datetime.datetime, datetime.time)):
@@ -167,8 +125,16 @@ Constraints:
         return value
 
     def _run_sql(self, sql: str) -> tuple[list[str], list[dict[str, Any]]]:
+        if not re.match(r"^\s*(WITH|SELECT)\b", sql, re.IGNORECASE):
+            raise ValueError(f"Only SELECT or WITH queries are allowed for security. Attempted: {sql[:30]}")
+            
         with sqlite3.connect(self.db_path) as connection:
             cursor = connection.cursor()
+            try:
+                cursor.execute("PRAGMA query_only = ON;")
+            except Exception as e:
+                logger.warning(f"Could not enforce PRAGMA query_only: {e}")
+                
             cursor.execute(sql)
             data = cursor.fetchall()
             columns = [item[0] for item in (cursor.description or [])]
@@ -207,19 +173,128 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
             raise ValueError("CSR-RAG repair failed to provide SQL.")
         return fixed_sql
 
-    def ask_data(self, query: str) -> dict[str, Any]:
+    def _generate_plotly(self, query: str, columns: list[str], rows: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        if not rows:
+            return None
+        
+        sample = json.dumps(rows[:10], default=str)
+        prompt = f"""
+You are a top-tier Data Visualization Expert.
+Generate an interactive Plotly visualization config based exactly on this user query and data sample.
+
+Query: "{query}"
+Columns: {columns}
+Data Sample: {sample}
+
+Identify the best visual format (bar, pie, line, scatter). Create the exact JSON dict containing the Plotly 'data' array and 'layout' dictionary object.
+IMPORTANT: Do not return anything outside the JSON. Return only the JSON:
+{{
+  "data": [...],
+  "layout": {{...}}
+}}
+"""
+        try:
+            return self.llm.json(prompt)
+        except Exception as e:
+            logger.error(f"Plotly generation failed: {e}")
+            return None
+
+    def simulate_scenario(self, instruction: str, query: str) -> dict[str, Any]:
         metadata = self._load_metadata()
+        schema = metadata.get("schema", {})
+        metric_dictionary = self._load_metrics()
+        date_bounds = metadata.get("date_bounds", {})
+        
+        embedding = self.llm.embed_texts([query], input_type="search_query")[0]
+        retrieval = self._search_semantics(embedding)
+        
+        synthesis = self._synthesize_sql_execution(query, schema, metric_dictionary, retrieval, date_bounds)
+        sql_select = synthesis["sql"]
+        plan_steps = synthesis["plan_steps"]
+        intent = synthesis["intent"]
+        
+        match = re.search(r"FROM\s+[\"']?([a-zA-Z0-9_]+)[\"']?", sql_select, re.IGNORECASE)
+        table_name = match.group(1) if match else metadata.get("table_name")
+        sandbox_table = table_name + "_sim_" + datetime.datetime.now().strftime("%H%M%S")
+        
+        update_prompt = f"""
+You are a SQL simulator. Write an UPDATE statement that alters the table "{sandbox_table}" according to the user's simulation instruction.
+Instruction: {instruction}
+Schema: {json.dumps(schema, indent=2)}
+Rules:
+- NEVER USE DDL (DROP, CREATE, ALTER). Return exactly one standard SQLite UPDATE command.
+- If they say "increase margin by 10%", do `UPDATE {sandbox_table} SET margin = margin * 1.1`
+Return JSON only: {{"sql": "UPDATE ..."}}
+"""
+        update_payload = self.llm.json(update_prompt)
+        update_sql = update_payload.get("sql", "")
+
+        columns, rows = [], []
+        execution_error = None
+        sql_select_sim = sql_select.replace(table_name, sandbox_table, 1)
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"CREATE TABLE {sandbox_table} AS SELECT * FROM {table_name}")
+                cursor.execute(update_sql)
+                conn.commit()
+                cursor.execute(sql_select_sim)
+                data = cursor.fetchall()
+                columns = [item[0] for item in (cursor.description or [])]
+                for row in data:
+                    rows.append({
+                        c: self._normalize_sql_value(v) for c, v in zip(columns, row)
+                    })
+                cursor.execute(f"DROP TABLE {sandbox_table}")
+                conn.commit()
+        except Exception as e:
+            execution_error = str(e)
+            logger.error(f"Simulation execution failed: {e}")
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.cursor().execute(f"DROP TABLE IF EXISTS {sandbox_table}")
+            except:
+                pass
+
+        plotly_config = None
+        if rows:
+            plotly_config = self._generate_plotly(query, columns, rows)
+
+        return {
+            "query": query,
+            "intent": "SIMULATION",
+            "plan": plan_steps,
+            "sql": sql_select,
+            "simulated_sql": update_sql,
+            "plotly_config": plotly_config,
+            "data_quality": {"error": execution_error} if execution_error else {"status": "ok"},
+            "columns": columns,
+            "rows": rows
+        }
+
+    def ask_data(self, query: str) -> dict[str, Any]:
+        # --- Parallelise I/O-bound work: embed query AND load metadata at the same time ---
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as boot_pool:
+            future_embed = boot_pool.submit(self.llm.embed_texts, [query], input_type="search_query")
+            future_meta = boot_pool.submit(self._load_metadata)
+            embedding = future_embed.result()[0]
+            metadata = future_meta.result()
+
         metric_dictionary = self._load_metrics()
         schema = metadata.get("schema", {})
         date_bounds = metadata.get("date_bounds", {})
 
-        intent = self._route_intent(query)
-        embedding = self.llm.embed_texts([query], input_type="search_query")[0]
-        cached_sql, cache_distance = self._check_cache(embedding)
+        # Cache check + semantic search both use the embedding — run in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as lookup_pool:
+            future_cache = lookup_pool.submit(self._check_cache, embedding)
+            future_retrieval = lookup_pool.submit(self._search_semantics, embedding)
+            cached_sql, cache_distance = future_cache.result()
+            retrieval = future_retrieval.result()
 
-        retrieval = self._search_semantics(embedding)
         plan_steps = []
         sql = ""
+        intent = "FACTUAL"
         execution_error = None
         repaired = False
         columns, rows = [], []
@@ -229,17 +304,18 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
             try:
                 columns, rows = self._run_sql(cached_sql)
                 sql = cached_sql
-                plan_steps = [f"[GBEC] Glass-Box Cache Hit! (L2 Distance: {cache_distance:.3f})", f"Intent Executed: {intent}"]
+                plan_steps = [f"[GBEC] Glass-Box Cache Hit! (L2 Distance: {cache_distance:.3f})"]
                 cached_run_success = True
-            except Exception:
-                pass # Fall back to full synthesis
-        
-        if not cached_run_success:
-            plan_steps = self._build_plan(query, schema, retrieval, date_bounds, intent)
-            sql = self._generate_sql(query, plan_steps, schema, metric_dictionary, retrieval, date_bounds, intent)
+            except Exception as cache_err:
+                logger.warning(f"Cached SQL failed execution, falling back to full synthesis: {cache_err}")
 
-        execution_error = None
-        repaired = False
+        if not cached_run_success:
+            synthesis = self._synthesize_sql_execution(query, schema, metric_dictionary, retrieval, date_bounds)
+            intent = synthesis["intent"]
+            plan_steps = synthesis["plan_steps"]
+            sql = synthesis["sql"]
+            if not sql:
+                raise ValueError("Model did not return SQL")
 
         if not cached_run_success:
             try:
@@ -265,12 +341,17 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
                     repaired = True
                     sql = repaired_sql if 'repaired_sql' in locals() else sql
 
+        # IMPORTANT: Do not generate Plotly here in ask_data because we moved it to run parallel in api.py
+        # Actually in api.py we call _generate_plotly explicitly. We can leave it out here or just return None to save a call.
+        # Wait, `simulate_scenario` calls `_generate_plotly` directly, so we need the method to exist. We'll leave it out of `ask_data` to not double-generate.
+
         return {
             "query": query,
             "intent": intent,
             "plan": plan_steps,
             "sql": sql,
             "repaired": repaired,
+            "data_quality": {"error": execution_error} if execution_error else {"status": "ok"},
             "initial_error": execution_error,
             "columns": columns,
             "rows": rows,
@@ -278,7 +359,7 @@ Return JSON only: {{"fixed_sql": "SELECT ..."}}
             "table": metadata.get("table_name"),
         }
 
-
 def ask_data(query: str) -> dict[str, Any]:
     brain = VantageBrain()
     return brain.ask_data(query)
+

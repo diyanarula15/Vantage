@@ -3,16 +3,18 @@ import Navbar from './Navbar';
 import Hero from './Hero';
 import { HowItWorks, Comparison, FeaturesGrid, IntegrationsGrid } from './Sections';
 import { PersonaTabs, SlackShowcase } from './Interactive';
+import { SimulationPlayground } from './SimulationPlayground';
+import { VoiceWidget } from './VoiceWidget';
 import { Testimonials, FAQ, FinalCTA, Footer } from './Social';
 
-export default function LandingPage() {
+export default function LandingPage({ onLaunch }) {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased overflow-x-hidden">
       {/* 1. Announcement Bar + 2. Navbar */}
-      <Navbar />
+      <Navbar onLaunch={onLaunch} />
 
       {/* 3. Hero Section */}
-      <Hero />
+      <Hero onLaunch={onLaunch} />
 
       {/* 4. How It Works */}
       <HowItWorks />
@@ -29,6 +31,9 @@ export default function LandingPage() {
       {/* 10. Slack Conversation Showcase */}
       <SlackShowcase />
 
+      {/* 10.5. Interactive Sandbox */}
+      <SimulationPlayground />
+
       {/* 11. Integrations / Data Sources */}
       <IntegrationsGrid />
 
@@ -40,6 +45,9 @@ export default function LandingPage() {
 
       {/* 15. Footer */}
       <Footer />
+
+      {/* Global Voice Action */}
+      <VoiceWidget />
     </div>
   );
 }

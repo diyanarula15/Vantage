@@ -19,7 +19,7 @@ function AnnouncementBar() {
 }
 
 /* ── Main Navbar ── */
-export default function Navbar() {
+export default function Navbar({ onLaunch }) {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,20 +82,8 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* CTA */}
+          {/* Mobile hamburger */}
           <div className="flex items-center gap-3">
-            <a href="#" className="hidden md:block text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-2">
-              Sign In
-            </a>
-            <motion.a
-              href="#cta"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.97 }}
-              className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-            >
-              Get Started
-            </motion.a>
-            {/* Mobile hamburger */}
             <button
               className="md:hidden p-2 text-slate-600 hover:text-slate-900"
               onClick={() => setMobileOpen(!mobileOpen)}
