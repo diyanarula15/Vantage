@@ -490,7 +490,7 @@ export default function Dashboard() {
       {/* Sidebar */}
       <div className="w-64 bg-slate-900 flex-shrink-0 text-slate-300 p-6 hidden md:flex flex-col border-r border-slate-800 z-20 shadow-xl overflow-y-auto">
         <div className="flex items-center gap-2 text-white font-bold text-xl mb-8">
-          <Command className="text-indigo-500" /> Vantage
+          <img src="/logo.png" alt="Vantage" className="w-6 h-6 object-contain drop-shadow-md" /> Vantage
         </div>
         
         <div className="flex flex-col gap-2 mb-6">
@@ -886,7 +886,7 @@ export default function Dashboard() {
               }`}>
                 {msg.role === 'assistant' && (
                   <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    <Command size={14} className="text-indigo-500" /> Vantage AI
+                    <img src="/logo.png" alt="Vantage AI" className="w-4 h-4 object-contain opacity-80" /> Vantage AI
                   </div>
                 )}
                 

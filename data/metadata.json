@@ -88,12 +88,12 @@
         "table": "aaravsharma_6y_transactions_2019_11_to_2025_10",
         "primary_key_guess": null,
         "time_column_guess": "Txn Date",
-        "description": "A table containing transaction details for a bank account over a 6-year period.",
+        "description": "A table containing transaction details for an account over a 6-year period.",
         "columns": [
           {
             "name": "Account",
             "semantic_type": "identifier",
-            "business_meaning": "Unique identifier for the bank account.",
+            "business_meaning": "Unique identifier for the account holder.",
             "pii_risk": "medium"
           },
           {
@@ -105,19 +105,19 @@
           {
             "name": "Value Date",
             "semantic_type": "time",
-            "business_meaning": "Date when the transaction value was recorded.",
+            "business_meaning": "Date when the transaction value was realized.",
             "pii_risk": "none"
           },
           {
             "name": "Description",
             "semantic_type": "text",
-            "business_meaning": "Description of the transaction.",
+            "business_meaning": "Detailed description of the transaction.",
             "pii_risk": "low"
           },
           {
             "name": "Ref/Cheque No.",
             "semantic_type": "identifier",
-            "business_meaning": "Reference or cheque number for the transaction.",
+            "business_meaning": "Reference or cheque number associated with the transaction.",
             "pii_risk": "none"
           },
           {
@@ -129,7 +129,7 @@
           {
             "name": "MCC",
             "semantic_type": "category",
-            "business_meaning": "Merchant Category Code, indicating the type of business.",
+            "business_meaning": "Merchant Category Code, representing the type of business.",
             "pii_risk": "none"
           },
           {
@@ -173,8 +173,8 @@
   },
   "instant_insights": {
     "confidence": 85,
-    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the dataset.",
-    "key_trend": "Recurring grocery and fuel expenses are prominent, with multiple transactions from BigBasket and fuel pumps throughout the month.",
-    "top_insight": "The dataset reflects a balanced mix of income and essential expenses, with a focus on housing, utilities, groceries, and transport, indicating a typical monthly financial pattern."
+    "biggest_driver": "The largest contributor to expenses is housing, with a single rent payment of \u20b923,000 dominating the debit transactions.",
+    "key_trend": "Recurring grocery and fuel expenses are evident, with multiple transactions at BigBasket and fuel stations throughout the month.",
+    "top_insight": "The dataset reflects a balanced mix of income and essential expenses, with a focus on housing, utilities, groceries, and transportation."
   }
 }

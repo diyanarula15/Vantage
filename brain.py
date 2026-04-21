@@ -208,13 +208,7 @@ IMPORTANT: Do not return anything outside the JSON. Return only the JSON:
         embedding = self.llm.embed_texts([query], input_type="search_query")[0]
         retrieval = self._search_semantics(embedding)
         
-        synthesis = self._synthesize_sql_execution(query, schema, metric_dictionary, retrieval, date_bounds)
-        sql_select = synthesis["sql"]
-        plan_steps = synthesis["plan_steps"]
-        intent = synthesis["intent"]
-        
-        match = re.search(r"FROM\s+[\"']?([a-zA-Z0-9_]+)[\"']?", sql_select, re.IGNORECASE)
-        table_name = match.group(1) if match else metadata.get("table_name")
+        table_name = metadata.get("table_name", "dataset")
         sandbox_table = table_name + "_sim_" + datetime.datetime.now().strftime("%H%M%S")
         
         update_prompt = f"""
@@ -226,11 +220,25 @@ Rules:
 - If they say "increase margin by 10%", do `UPDATE {sandbox_table} SET margin = margin * 1.1`
 Return JSON only: {{"sql": "UPDATE ..."}}
 """
-        update_payload = self.llm.json(update_prompt)
+
+        # Parallelise Read SQL (query) and Write SQL (update) synthesis
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as sim_pool:
+            future_synthesis = sim_pool.submit(
+                self._synthesize_sql_execution, query, schema, metric_dictionary, retrieval, date_bounds
+            )
+            future_update = sim_pool.submit(self.llm.json, update_prompt)
+            
+            synthesis = future_synthesis.result()
+            update_payload = future_update.result()
+
+        sql_select = synthesis["sql"]
+        plan_steps = synthesis["plan_steps"]
+        
         update_sql = update_payload.get("sql", "")
 
         columns, rows = [], []
         execution_error = None
+        # Update table string replacement
         sql_select_sim = sql_select.replace(table_name, sandbox_table, 1)
 
         try:
@@ -257,9 +265,8 @@ Return JSON only: {{"sql": "UPDATE ..."}}
             except:
                 pass
 
+        # Plotly generation is removed from simulate_scenario to run concurrently in api.py
         plotly_config = None
-        if rows:
-            plotly_config = self._generate_plotly(query, columns, rows)
 
         return {
             "query": query,

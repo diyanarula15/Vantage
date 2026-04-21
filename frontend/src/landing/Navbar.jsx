@@ -58,10 +58,8 @@ export default function Navbar({ onLaunch }) {
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16 md:h-[72px]">
           {/* Logo */}
-          <a href="#" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-shadow">
-              <Zap size={18} className="text-white" fill="currentColor" />
-            </div>
+          <a href="#" className="flex items-center gap-3 group">
+            <img src="/logo.png" alt="Vantage Logo" className="w-12 h-12 object-contain drop-shadow-2xl filter group-hover:drop-shadow-[0_0_20px_rgba(79,70,229,0.6)] group-hover:scale-110 transition-all duration-500 ease-out" />
             <span className="text-xl font-bold text-slate-900 tracking-tight">Vantage</span>
           </a>
 

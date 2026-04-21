@@ -60,10 +60,10 @@ class LLMClient:
         response = self.client.chat(**kwargs)
         return (response.text or "").strip()
 
-    def json(self, prompt: str) -> Any:
+    def json(self, prompt: str, use_web: bool = False, search_query: Optional[str] = None) -> Any:
         # Often with Cohere for JSON we just append an instruction
         json_prompt = prompt + "\n\nPlease ensure your response is ONLY valid JSON, with no markdown formatting or extra text."
-        response_text = self.text(json_prompt)
+        response_text = self.text(json_prompt, use_web=use_web, search_query=search_query)
         return _extract_json_block(response_text)
 
     def embed_texts(

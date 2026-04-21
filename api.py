@@ -134,16 +134,28 @@ def run_simulation(req: SimulationRequest):
         return _simulate_cache[cache_key]
 
     try:
+        import concurrent.futures
+
         payload = vantage_brain.simulate_scenario(req.scenario_instruction, req.query)
         sql = payload.get("sql")
         simulation_sql = payload.get("simulated_sql")
         rows = payload.get("rows", [])
-        plotly_config = payload.get("plotly_config", None)
+        columns = payload.get("columns", [])
         
         preview_rows = rows[:15]
-        safe_rows = narrator.redact_pii(preview_rows)
-        summary = narrator.summarize_simulation(req.query, req.scenario_instruction, safe_rows)
-        follow_ups = narrator.suggest_follow_ups(req.query, summary)
+
+        # 2. Run all three post-processing tasks completely independently in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_plotly = executor.submit(vantage_brain._generate_plotly, req.query, columns, preview_rows)
+            future_pii = executor.submit(narrator.redact_pii, preview_rows)
+            future_narration = executor.submit(narrator.narrate_and_suggest_simulation, req.query, req.scenario_instruction, preview_rows)
+
+            plotly_config = future_plotly.result()
+            safe_rows = future_pii.result()
+            narration_result = future_narration.result()
+
+        summary = narration_result.get("summary", "Simulation complete.")
+        follow_ups = narration_result.get("follow_up_questions", [])
         
         resp = SimulationResponse(
             answer=summary,

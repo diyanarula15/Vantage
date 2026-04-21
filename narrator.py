@@ -95,7 +95,7 @@ RULES:
 Question: {question}
 Result preview: {json.dumps(preview, indent=2)}
 """
-        text = self.llm.text(prompt, use_web=False, search_query=question)
+        text = self.llm.text(prompt, use_web=True, search_query=question)
         normalized = " ".join(text.strip().replace("\n", " ").split())
         if normalized.count(".") >= 2:
             return normalized
@@ -117,8 +117,37 @@ Your task: Provide extremely actionable, advanced, and stunningly formulated bus
 - Use a visionary and authoritative tone. Make it sound like a McKinsey partner is advising the CEO.
 - Keep it to 3-4 impactful sentences. Do NOT use markdown.
 '''
-        text = self.llm.text(prompt)
+        text = self.llm.text(prompt, use_web=True, search_query=f"{query} {instruction}")
         return " ".join(text.strip().replace("\n", " ").split())
+
+    def narrate_and_suggest_simulation(self, query: str, instruction: str, simulated_rows: list) -> dict[str, Any]:
+        prompt = f'''
+You are a highly advanced Strategic Financial Advisor and Data Scientist.
+The user asked an original question: "{query}"
+Then the user requested a What-If scenario: "{instruction}"
+Here is the resulting simulated data: {simulated_rows[:15]}
+
+Your task: Provide extremely actionable, advanced, and stunningly formulated business insights. 
+- Give concrete, strategic reallocation advice for the changes.
+- Use a visionary and authoritative tone. Keep it to 3-4 impactful sentences. Do NOT use markdown.
+
+Return ONLY JSON format:
+{{
+  "summary": "...",
+  "follow_up_questions": ["q1", "q2", "q3"]
+}}
+'''
+        try:
+            payload = self.llm.json(prompt, use_web=True, search_query=f"{query} {instruction}")
+            summary = payload.get("summary", "Could not generate summary.")
+            return {
+                "summary": " ".join(summary.strip().replace("\n", " ").split()),
+                "follow_up_questions": payload.get("follow_up_questions", [])[:3]
+            }
+        except Exception as e:
+            import logging
+            logging.getLogger("vantage_narrator").error(f"Failed to narrate_and_suggest_simulation: {e}")
+            return {"summary": "Completed simulation.", "follow_up_questions": []}
 
     def narrate_and_suggest(self, question: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
         preview = rows[:20]
@@ -142,7 +171,7 @@ Format (JSON only):
 }}
 '''
         try:
-            payload = self.llm.json(prompt)
+            payload = self.llm.json(prompt, use_web=True, search_query=question)
             summary = payload.get("summary", "Could not generate summary.")
             normalized = " ".join(summary.strip().replace("\n", " ").split())
             if normalized.count(".") < 2:

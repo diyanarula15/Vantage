@@ -1,3 +1,4 @@
+import datetime
 import argparse
 import sys
 import os
@@ -9,6 +10,15 @@ def run_streamlit_ui() -> None:
     os.system("streamlit run Home.py")
 
 def run_slack_listener() -> None:
+    # Safely instruct macOS/Python to use certifi's trusted CA bundle for both REST and WebSockets
+    try:
+        import certifi
+        import os
+        os.environ["SSL_CERT_FILE"] = certifi.where()
+        os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+    except ImportError:
+        pass
+
     from slack_bolt import App
     from slack_bolt.adapter.socket_mode import SocketModeHandler
     from narrator import Narrator
@@ -26,11 +36,19 @@ def run_slack_listener() -> None:
         say("⏳ I'm crunching the numbers and gathering market context! One moment...")
         try:
             import json
+            import concurrent.futures
             query = event["text"]
             payload = bot_brain.ask_data(query)
             
-            safe_rows = bot_narrator.redact_pii(payload.get("rows", []))
-            summary = bot_narrator.summarize(query, safe_rows)
+            raw_rows = payload.get("rows", [])
+            preview_rows = raw_rows[:15]
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                future_pii = executor.submit(bot_narrator.redact_pii, preview_rows)
+                future_summary = executor.submit(bot_narrator.summarize, query, preview_rows)
+                
+                safe_rows = future_pii.result()
+                summary = future_summary.result()
             
             blocks = []
             
@@ -95,76 +113,79 @@ def run_slack_listener() -> None:
             say(text="Vantage Insight Ready", blocks=blocks)
             print("✅ Reply sent successfully")
             
-            # --- Optional Chart Generation ---
-            try:
-                if safe_rows and len(safe_rows) > 1:
-                    import pandas as pd
-                    df = pd.DataFrame(safe_rows)
-                    num_cols = df.select_dtypes(include=["number"]).columns.tolist()
-                    cat_cols = df.select_dtypes(exclude=["number", "datetime"]).columns.tolist()
-                    
-                    if num_cols and cat_cols:
-                        import matplotlib
-                        matplotlib.use("Agg")
-                        import matplotlib.pyplot as plt
-                        import seaborn as sns
+            # --- Optional Chart Generation (Background Thread) ---
+            def generate_chart_bg(rows_data, ch, thread_ts):
+                try:
+                    if rows_data and len(rows_data) > 1:
+                        import pandas as pd
+                        df = pd.DataFrame(rows_data)
+                        num_cols = df.select_dtypes(include=["number"]).columns.tolist()
+                        cat_cols = df.select_dtypes(exclude=["number", "datetime"]).columns.tolist()
                         
-                        metric = num_cols[0]
-                        dimension = cat_cols[0]
-                        
-                        df_agg = df.groupby(dimension)[metric].sum().reset_index().sort_values(by=metric, ascending=False).head(15)
-                        
-                        # Premium Cyberpunk Dark Theme
-                        plt.style.use('dark_background')
-                        fig, ax = plt.subplots(figsize=(10, 6), facecolor='#090d14')
-                        ax.set_facecolor('#090d14')
-                        
-                        bars = sns.barplot(
-                            data=df_agg, x=dimension, y=metric, 
-                            ax=ax, hue=dimension, palette="cool", 
-                            edgecolor='#00F0FF', linewidth=1.5, legend=False
-                        )
-                        
-                        # Add value labels on top of bars
-                        for p in bars.patches:
-                            if p.get_height() > 0:
-                                ax.annotate(f'{int(p.get_height()):,}', 
-                                    (p.get_x() + p.get_width() / 2., p.get_height()), 
-                                    ha='center', va='bottom', color='#e2e8f0', 
-                                    fontweight='bold', fontsize=9,
-                                    xytext=(0, 4), textcoords='offset points')
-                                    
-                        # Minimalist Neon Styling
-                        plt.title(f"A N A L Y S I S  //  {metric.upper()} BY {dimension.upper()}", 
-                                  fontsize=14, fontweight='900', color="#ffffff", pad=20)
-                        plt.xlabel("")
-                        plt.ylabel(metric.upper(), fontweight='bold', color="#64748b", labelpad=10)
-                        
-                        plt.xticks(rotation=45, ha='right', color='#94a3b8', fontsize=10)
-                        plt.yticks(color='#94a3b8', fontsize=10)
-                        
-                        ax.grid(axis='y', color='#1e293b', linestyle='--', linewidth=0.5)
-                        ax.spines['top'].set_visible(False)
-                        ax.spines['right'].set_visible(False)
-                        ax.spines['left'].set_color('#1e293b')
-                        ax.spines['bottom'].set_color('#334155')
-                        
-                        plt.tight_layout()
-                        
-                        chart_path = "./vantage_chart.png"
-                        plt.savefig(chart_path, dpi=150, bbox_inches='tight')
-                        plt.close()
-                        
-                        app.client.files_upload_v2(
-                            channel=event["channel"],
-                            thread_ts=event.get("thread_ts"),
-                            file=chart_path,
-                            initial_comment="📊 *Visual Insight Generated*"
-                        )
-                        print("✅ Chart generated and uploaded successfully")
-            except Exception as chart_err:
-                print(f"⚠️ Could not generate chart: {chart_err}")
-                
+                        if num_cols and cat_cols:
+                            import matplotlib
+                            matplotlib.use("Agg")
+                            import matplotlib.pyplot as plt
+                            import seaborn as sns
+                            
+                            metric = num_cols[0]
+                            dimension = cat_cols[0]
+                            
+                            # Clean dataframe before plotting
+                            df[metric] = df[metric].fillna(0)
+                            
+                            df_agg = df.groupby(dimension)[metric].sum().reset_index().sort_values(by=metric, ascending=False).head(15)
+                            
+                            plt.style.use('dark_background')
+                            fig, ax = plt.subplots(figsize=(10, 6), facecolor='#090d14')
+                            ax.set_facecolor('#090d14')
+                            
+                            bars = sns.barplot(
+                                data=df_agg, x=dimension, y=metric, 
+                                ax=ax, hue=dimension, palette="cool", 
+                                edgecolor='#00F0FF', linewidth=1.5, legend=False
+                            )
+                            
+                            for p in bars.patches:
+                                if p.get_height() > 0:
+                                    ax.annotate(f'{int(p.get_height()):,}', 
+                                        (p.get_x() + p.get_width() / 2., p.get_height()), 
+                                        ha='center', va='bottom', color='#e2e8f0', 
+                                        fontweight='bold', fontsize=9,
+                                        xytext=(0, 4), textcoords='offset points')
+                                        
+                            plt.title(f"A N A L Y S I S  //  {metric.upper()} BY {dimension.upper()}", 
+                                      fontsize=14, fontweight='900', color="#ffffff", pad=20)
+                            plt.xlabel("")
+                            plt.ylabel(metric.upper(), fontweight='bold', color="#64748b", labelpad=10)
+                            
+                            plt.xticks(rotation=45, ha='right', color='#94a3b8', fontsize=10)
+                            plt.yticks(color='#94a3b8', fontsize=10)
+                            
+                            ax.grid(axis='y', color='#1e293b', linestyle='--', linewidth=0.5)
+                            ax.spines['top'].set_visible(False)
+                            ax.spines['right'].set_visible(False)
+                            ax.spines['left'].set_color('#1e293b')
+                            ax.spines['bottom'].set_color('#334155')
+                            
+                            plt.tight_layout()
+                            
+                            chart_path = f"./vantage_chart_{datetime.datetime.now().strftime('%H%M%S')}.png" if 'datetime' in sys.modules else "./vantage_chart.png"
+                            plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+                            plt.close()
+                            
+                            app.client.files_upload_v2(
+                                channel=ch,
+                                thread_ts=thread_ts,
+                                file=chart_path,
+                                initial_comment="📊 *Visual Insight Generated*"
+                            )
+                            print("✅ Chart generated and uploaded successfully")
+                except Exception as chart_err:
+                    import traceback; traceback.print_exc(); print(f"⚠️ Could not generate chart: {chart_err}")
+
+            import threading
+            threading.Thread(target=generate_chart_bg, args=(safe_rows, event["channel"], event.get("thread_ts")), daemon=True).start()
         except Exception as e:
             import traceback
             traceback.print_exc()

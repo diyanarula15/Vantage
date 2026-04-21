@@ -529,7 +529,7 @@ export default function Hero() {
             </div>
 
             {/* Output Area */}
-            <div className="p-6 pb-28 flex-1 bg-[linear-gradient(to_bottom,#f8fafc,#ffffff)] overflow-y-auto">
+            <div className="p-6 pb-28 flex-1 bg-[linear-gradient(to_bottom,#f8fafc,#ffffff)] overflow-y-auto overflow-x-hidden break-words">
               {chatStatus === 'idle' && !chatResponse && uploadStatus === 'uploading' ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}>
@@ -545,29 +545,19 @@ export default function Hero() {
               )}
 
               {chatStatus === 'loading' && (
-                <div className="space-y-4">
-                  <div className="flex gap-3 animate-pulse">
-                    <div className="w-8 h-8 rounded bg-slate-200 flex-shrink-0" />
-                    <div className="h-8 bg-slate-200 rounded w-1/3" />
-                  </div>
-                  <div className="pl-11 space-y-2">
-                    <div className="h-4 bg-slate-100 rounded w-full" />
-                    <div className="h-4 bg-slate-100 rounded w-4/5" />
-                    <div className="h-24 bg-slate-50 rounded mt-4" />
-                  </div>
-                </div>
+                <TimelineOverlay status={chatStatus} isQuery={true} inline={true} />
               )}
 
               {chatStatus === 'success' && chatResponse && (
                 <AnimatePresence>
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 flex flex-col h-full">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 flex flex-col h-full w-full min-w-0">
                     {/* Answer Bubble */}
                     <div className="flex gap-3 flex-shrink-0">
                       <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center flex-shrink-0 shadow-sm">
                         <Zap size={14} className="text-white" />
                       </div>
-                      <div className="flex-1 space-y-3">
-                        <div className="text-sm text-slate-800 leading-relaxed font-medium whitespace-pre-wrap">
+                      <div className="flex-1 space-y-3 min-w-0">
+                        <div className="text-sm text-slate-800 leading-relaxed font-medium whitespace-pre-wrap break-words">
                           {chatResponse.answer}
                         </div>
                         
@@ -577,7 +567,7 @@ export default function Hero() {
                             <p className="text-xs font-semibold text-slate-500 flex items-center gap-1"><Sparkles size={12}/> SUGGESTED QUESTIONS</p>
                             <div className="flex flex-wrap gap-2">
                               {chatResponse.follow_up_questions.map((q, idx) => (
-                                <button key={idx} onClick={() => setQuery(q)} className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full hover:bg-indigo-100 transition-colors border border-indigo-100 font-medium whitespace-nowrap">
+                                <button key={idx} onClick={() => setQuery(q)} className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 font-medium whitespace-normal text-left break-words max-w-full">
                                   {q}
                                 </button>
                               ))}
@@ -599,7 +589,7 @@ export default function Hero() {
 
                     {/* Rows Debug Output & Auto-Generated Chart */}
                                          {chatResponse.rows?.length > 0 && (
-                        <div className="pl-11 pb-4 flex-shrink-0 space-y-4">
+                        <div className="pl-11 pb-4 flex-shrink-0 space-y-4 w-full overflow-hidden max-w-full">
                           
                           {/* Auto-Generated Visual */}
                           {Object.keys(chatResponse.rows[0]).length >= 2 && (

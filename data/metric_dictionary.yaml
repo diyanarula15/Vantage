@@ -20,12 +20,12 @@ metrics:
   sql_formula: SUM(Debit) GROUP BY Category
   grain_hint: category
 - name: Churn Rate
-  description: Rate of account inactivity or closure (not directly calculable from
-    this dataset, requires additional context).
-  sql_formula: null
+  description: Rate of account churn based on transactions (not directly calculable
+    from this dataset, requires additional context).
+  sql_formula: 'NULL'
   grain_hint: unknown
 - name: ROI on Income
   description: Return on Investment based on income and expenses (not directly calculable
     from this dataset, requires additional context).
-  sql_formula: null
+  sql_formula: 'NULL'
   grain_hint: unknown
